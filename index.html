@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <style>
     :root {
       --bg: #f4f6f9;
@@ -1698,6 +1699,45 @@
     (function () {
       'use strict';
 
+      /* =====================================================================
+         การตั้งค่าเชื่อมต่อฐานข้อมูล SUPABASE (แก้ไขค่าคงที่ด้านล่างก่อนนำขึ้นใช้งาน)
+         ---------------------------------------------------------------------
+         คำสั่ง SQL สำหรับรันสร้างตารางในเมนู SQL Editor ของ Supabase:
+
+         create table if not exists public.schools (
+           id text primary key,
+           name text not null,
+           sort_order integer not null default 0,
+           created_at timestamptz not null default now()
+         );
+
+         create table if not exists public.sports (
+           id text primary key,
+           name text not null,
+           school_ids jsonb not null default '[]'::jsonb,
+           seeds jsonb not null default '{}'::jsonb,
+           draw_config jsonb not null default '{}'::jsonb,
+           draw_result jsonb,
+           sort_order integer not null default 0,
+           updated_at timestamptz not null default now()
+         );
+
+         alter table public.schools enable row level security;
+         alter table public.sports enable row level security;
+
+         drop policy if exists "Allow public access on schools" on public.schools;
+         create policy "Allow public access on schools"
+           on public.schools for all to anon, authenticated
+           using (true) with check (true);
+
+         drop policy if exists "Allow public access on sports" on public.sports;
+         create policy "Allow public access on sports"
+           on public.sports for all to anon, authenticated
+           using (true) with check (true);
+         ===================================================================== */
+      const SUPABASE_URL = 'https://xukllduicetwqeydxuro.supabase.co';      // ใส่ Project URL จากหน้า Project Settings > API
+      const SUPABASE_ANON_KEY = 'sb_publishable_wtAkLlKmMwHI8Dwsn53AJw_XhDa78Y7'; // ใส่ anon public หรือ publishable key จากหน้า Project Settings > API
+
       // Application State (starts empty as required)
       const state = {
         activeStep: 'schools',
@@ -1714,6 +1754,270 @@
       let idSeq = 1;
       function nextId(prefix) {
         return prefix + '_' + (idSeq++);
+      }
+
+      function syncIdSeqFromState() {
+        let maxFound = idSeq;
+        state.schools.concat(state.sports).forEach(function (item) {
+          const m = String(item && item.id ? item.id : '').match(/_(\d+)$/);
+          if (m) {
+            const num = Number(m[1]);
+            if (num >= maxFound) {
+              maxFound = num + 1;
+            }
+          }
+        });
+        idSeq = maxFound;
+      }
+
+      /* =====================================================================
+         SUPABASE SCRIPT INTEGRATION (โหลดและบันทึกข้อมูลอัตโนมัติเมื่อตั้งค่าคงที่ไว้)
+         ===================================================================== */
+      const supabaseDb = {
+        url: SUPABASE_URL.trim().replace(/\/+$/, ''),
+        anonKey: SUPABASE_ANON_KEY.trim(),
+        client: null,
+        ready: false
+      };
+
+      const pendingDeletes = {
+        schools: {},
+        sports: {}
+      };
+      let syncDebounceTimer = null;
+      let isSyncInFlight = false;
+      let needsAnotherSync = false;
+
+      function initSupabaseClientInstance() {
+        if (!supabaseDb.url || !supabaseDb.anonKey) return null;
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+          return {
+            mode: 'sdk',
+            sdk: window.supabase.createClient(supabaseDb.url, supabaseDb.anonKey, {
+              auth: { persistSession: false, autoRefreshToken: false }
+            })
+          };
+        }
+        return { mode: 'rest' };
+      }
+
+      async function sbRestFetch(path, method, bodyObj, extraHeaders) {
+        const headers = Object.assign({
+          'apikey': supabaseDb.anonKey,
+          'Authorization': 'Bearer ' + supabaseDb.anonKey,
+          'Content-Type': 'application/json'
+        }, extraHeaders || {});
+
+        const res = await window.fetch(supabaseDb.url + '/rest/v1/' + path, {
+          method: method,
+          headers: headers,
+          body: bodyObj !== undefined ? JSON.stringify(bodyObj) : undefined
+        });
+
+        if (!res.ok) {
+          let errBody = null;
+          try { errBody = await res.json(); } catch (_e) {}
+          throw errBody || new Error('Supabase HTTP ' + res.status);
+        }
+
+        if (res.status === 204) return null;
+        const txt = await res.text();
+        return txt ? JSON.parse(txt) : null;
+      }
+
+      async function dbFetchAll() {
+        if (supabaseDb.client.mode === 'sdk') {
+          const schRes = await supabaseDb.client.sdk.from('schools').select('*').order('sort_order', { ascending: true });
+          if (schRes.error) throw schRes.error;
+          const sptRes = await supabaseDb.client.sdk.from('sports').select('*').order('sort_order', { ascending: true });
+          if (sptRes.error) throw sptRes.error;
+          return { schools: schRes.data || [], sports: sptRes.data || [] };
+        }
+        const schools = await sbRestFetch('schools?select=*&order=sort_order.asc', 'GET');
+        const sports = await sbRestFetch('sports?select=*&order=sort_order.asc', 'GET');
+        return { schools: schools || [], sports: sports || [] };
+      }
+
+      async function dbUpsertRows(table, rows) {
+        if (!rows || rows.length === 0) return;
+        if (supabaseDb.client.mode === 'sdk') {
+          const res = await supabaseDb.client.sdk.from(table).upsert(rows, { onConflict: 'id' });
+          if (res.error) throw res.error;
+          return;
+        }
+        await sbRestFetch(
+          table + '?on_conflict=id',
+          'POST',
+          rows,
+          { 'Prefer': 'resolution=merge-duplicates,return=minimal' }
+        );
+      }
+
+      async function dbDeleteIds(table, ids) {
+        if (!ids || ids.length === 0) return;
+        if (supabaseDb.client.mode === 'sdk') {
+          const res = await supabaseDb.client.sdk.from(table).delete().in('id', ids);
+          if (res.error) throw res.error;
+          return;
+        }
+        const listStr = ids.map(function (id) { return '"' + String(id).replace(/"/g, '') + '"'; }).join(',');
+        await sbRestFetch(
+          table + '?id=in.(' + encodeURIComponent(listStr) + ')',
+          'DELETE',
+          undefined,
+          { 'Prefer': 'return=minimal' }
+        );
+      }
+
+      function buildSchoolsPayload() {
+        return state.schools.map(function (sch, idx) {
+          return {
+            id: sch.id,
+            name: sch.name,
+            sort_order: idx
+          };
+        });
+      }
+
+      function buildSportsPayload() {
+        const nowIso = new Date().toISOString();
+        return state.sports.map(function (sp, idx) {
+          const cfg = ensureDrawConfig(sp);
+          return {
+            id: sp.id,
+            name: sp.name,
+            school_ids: sp.schoolIds.slice(),
+            seeds: Object.assign({}, sp.seeds),
+            draw_config: Object.assign({}, cfg),
+            draw_result: state.draws[sp.id] || null,
+            sort_order: idx,
+            updated_at: nowIso
+          };
+        });
+      }
+
+      function applyRemoteRowsToState(remoteSchools, remoteSports) {
+        state.schools = (remoteSchools || []).map(function (r) {
+          return { id: String(r.id), name: String(r.name) };
+        });
+
+        state.sports = [];
+        state.drawConfigs = {};
+        state.draws = {};
+
+        (remoteSports || []).forEach(function (r) {
+          const spId = String(r.id);
+          const schoolIds = Array.isArray(r.school_ids) ? r.school_ids.map(String) : [];
+          const seeds = (r.seeds && typeof r.seeds === 'object' && !Array.isArray(r.seeds)) ? r.seeds : {};
+          state.sports.push({
+            id: spId,
+            name: String(r.name),
+            schoolIds: schoolIds,
+            seeds: seeds
+          });
+
+          if (r.draw_config && typeof r.draw_config === 'object' && r.draw_config.method) {
+            state.drawConfigs[spId] = {
+              method: r.draw_config.method,
+              groupCount: Number(r.draw_config.groupCount) || 2,
+              thirdPlace: r.draw_config.thirdPlace !== false
+            };
+          }
+          if (r.draw_result && typeof r.draw_result === 'object' && r.draw_result.method) {
+            state.draws[spId] = r.draw_result;
+          }
+        });
+
+        syncIdSeqFromState();
+
+        if (!state.selectedSportIdForEntries || !getSportById(state.selectedSportIdForEntries)) {
+          state.selectedSportIdForEntries = state.sports.length > 0 ? state.sports[0].id : null;
+        }
+        if (!state.selectedSportIdForDraw || !getSportById(state.selectedSportIdForDraw)) {
+          state.selectedSportIdForDraw = state.sports.length > 0 ? state.sports[0].id : null;
+        }
+      }
+
+      function queueDeleteSchool(schoolId) {
+        if (!supabaseDb.ready) return;
+        pendingDeletes.schools[schoolId] = true;
+      }
+
+      function queueDeleteSport(sportId) {
+        if (!supabaseDb.ready) return;
+        pendingDeletes.sports[sportId] = true;
+      }
+
+      function scheduleSupabaseSync(immediate) {
+        if (!supabaseDb.ready || !supabaseDb.client) return;
+        if (syncDebounceTimer) {
+          clearTimeout(syncDebounceTimer);
+          syncDebounceTimer = null;
+        }
+        syncDebounceTimer = setTimeout(function () {
+          syncDebounceTimer = null;
+          flushSupabaseChanges();
+        }, immediate ? 10 : 220);
+      }
+
+      async function flushSupabaseChanges() {
+        if (!supabaseDb.ready || !supabaseDb.client) return;
+        if (isSyncInFlight) {
+          needsAnotherSync = true;
+          return;
+        }
+        isSyncInFlight = true;
+
+        try {
+          do {
+            needsAnotherSync = false;
+
+            const delSportIds = Object.keys(pendingDeletes.sports);
+            const delSchoolIds = Object.keys(pendingDeletes.schools);
+            pendingDeletes.sports = {};
+            pendingDeletes.schools = {};
+
+            if (delSportIds.length > 0) {
+              await dbDeleteIds('sports', delSportIds);
+            }
+            if (delSchoolIds.length > 0) {
+              await dbDeleteIds('schools', delSchoolIds);
+            }
+
+            const schoolRows = buildSchoolsPayload();
+            const sportRows = buildSportsPayload();
+
+            if (schoolRows.length > 0) {
+              await dbUpsertRows('schools', schoolRows);
+            }
+            if (sportRows.length > 0) {
+              await dbUpsertRows('sports', sportRows);
+            }
+          } while (needsAnotherSync);
+        } catch (err) {
+          console.error('[Supabase Sync Error]', err);
+        } finally {
+          isSyncInFlight = false;
+        }
+      }
+
+      async function bootSupabaseConnection() {
+        if (!supabaseDb.url || !supabaseDb.anonKey) return;
+        supabaseDb.client = initSupabaseClientInstance();
+        if (!supabaseDb.client) return;
+
+        try {
+          const remote = await dbFetchAll();
+          supabaseDb.ready = true;
+          if (remote.schools.length > 0 || remote.sports.length > 0) {
+            applyRemoteRowsToState(remote.schools, remote.sports);
+            renderAll();
+          } else if (state.schools.length > 0 || state.sports.length > 0) {
+            await flushSupabaseChanges();
+          }
+        } catch (err) {
+          console.error('[Supabase Connection Error]', err);
+        }
       }
 
       function escapeHtml(str) {
@@ -2530,6 +2834,7 @@
         });
         if (commitPending && activeDrawJob.pendingDraw && activeDrawJob.sportId) {
           state.draws[activeDrawJob.sportId] = activeDrawJob.pendingDraw;
+          scheduleSupabaseSync(true);
         }
         activeDrawJob = null;
       }
@@ -2765,6 +3070,7 @@
           const finishedSportId = activeDrawJob.sportId;
           state.draws[finishedSportId] = activeDrawJob.pendingDraw;
           cancelActiveDrawIfAny(false);
+          scheduleSupabaseSync(true);
           justRevealedSportId = finishedSportId;
           renderDrawView();
           justRevealedSportId = null;
@@ -3166,6 +3472,7 @@
         errBox.classList.remove('visible');
         input.value = '';
         renderAll();
+        scheduleSupabaseSync(true);
       });
 
       // Add Sport Form
@@ -3203,6 +3510,7 @@
         state.selectedSportIdForDraw = newSport.id;
         input.value = '';
         renderAll();
+        scheduleSupabaseSync(true);
       });
 
       // Delegated Clicks & Changes
@@ -3246,7 +3554,9 @@
               delete state.draws[sp.id];
             }
           });
+          queueDeleteSchool(sid);
           renderAll();
+          scheduleSupabaseSync(true);
           return;
         }
 
@@ -3273,7 +3583,9 @@
           if (state.selectedSportIdForDraw === spId) {
             state.selectedSportIdForDraw = state.sports.length ? state.sports[0].id : null;
           }
+          queueDeleteSport(spId);
           renderAll();
+          scheduleSupabaseSync(true);
           return;
         }
 
@@ -3286,6 +3598,7 @@
             delete state.draws[sp.id];
             delete state.drawConfigs[sp.id];
             renderAll();
+            scheduleSupabaseSync(false);
           }
           return;
         }
@@ -3299,6 +3612,7 @@
             sp.seeds = {};
             delete state.draws[sp.id];
             renderAll();
+            scheduleSupabaseSync(false);
           }
           return;
         }
@@ -3323,6 +3637,7 @@
             cfg.method = methodCard.getAttribute('data-select-method');
             state.confirmingSportId = null;
             renderDrawView();
+            scheduleSupabaseSync(false);
           }
           return;
         }
@@ -3352,6 +3667,7 @@
             state.draws[sp.id].confirmed = true;
             state.confirmingSportId = null;
             renderAll();
+            scheduleSupabaseSync(true);
           }
           return;
         }
@@ -3404,6 +3720,7 @@
           delete state.draws[sp.id];
           delete state.drawConfigs[sp.id];
           renderAll();
+          scheduleSupabaseSync(false);
           return;
         }
 
@@ -3427,6 +3744,7 @@
           }
           delete state.draws[sp.id];
           renderSportsView();
+          scheduleSupabaseSync(false);
           return;
         }
 
@@ -3436,6 +3754,7 @@
           if (sp && !isSportDrawConfirmed(sp.id)) {
             const cfg = ensureDrawConfig(sp);
             cfg.thirdPlace = target.checked;
+            scheduleSupabaseSync(false);
           }
           return;
         }
@@ -3446,6 +3765,7 @@
           if (sp && !isSportDrawConfirmed(sp.id)) {
             const cfg = ensureDrawConfig(sp);
             cfg.groupCount = Number(target.value);
+            scheduleSupabaseSync(false);
           }
           return;
         }
@@ -3457,8 +3777,14 @@
         }
       });
 
-      // Initial render
+      // Initial render & boot Supabase script connection after deferred SDK loads
       renderAll();
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', bootSupabaseConnection);
+      } else {
+        bootSupabaseConnection();
+      }
     })();
   </script>
 </body>
