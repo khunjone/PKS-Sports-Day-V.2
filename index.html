@@ -1,0 +1,2295 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ระบบแบ่งสายการแข่งขันกีฬานักเรียน</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --surface-subtle: #f8fafc;
+      --border: #dde3ec;
+      --border-strong: #cbd5e1;
+      --ink: #0f172a;
+      --ink-secondary: #334155;
+      --muted: #64748b;
+      --brand: #1d4ed8;
+      --brand-hover: #1e40af;
+      --brand-soft: #eff6ff;
+      --brand-border: #bfdbfe;
+      --brand-ink: #ffffff;
+      --bye-bg: #ecfdf5;
+      --bye-border: #a7f3d0;
+      --bye-ink: #065f46;
+      --seed-bg: #fef3c7;
+      --seed-border: #fde68a;
+      --seed-ink: #92400e;
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+      --danger-border: #fecaca;
+      --radius-sm: 8px;
+      --radius: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow: 0 4px 12px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(15, 23, 42, 0.04);
+      --space-1: 4px;
+      --space-2: 8px;
+      --space-3: 12px;
+      --space-4: 16px;
+      --space-5: 20px;
+      --space-6: 24px;
+      --space-8: 32px;
+      --font-heading: 'Prompt', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-body: 'Sarabun', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: var(--font-body);
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink);
+      background-color: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    h1, h2, h3, h4 {
+      font-family: var(--font-heading);
+      margin: 0;
+      line-height: 1.35;
+      color: var(--ink);
+    }
+
+    /* App Header */
+    .app-header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 20;
+    }
+
+    .header-inner {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: var(--space-4) var(--space-6);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-4);
+    }
+
+    @media (min-width: 860px) {
+      .header-inner {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(29, 78, 216, 0.25);
+    }
+
+    .app-title {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    .app-subtitle {
+      margin: 2px 0 0;
+      font-size: 0.92rem;
+      color: var(--muted);
+    }
+
+    /* Step Navigation Tabs */
+    .step-nav {
+      display: flex;
+      gap: var(--space-2);
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .step-tab {
+      font-family: var(--font-heading);
+      font-size: 0.92rem;
+      font-weight: 500;
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--ink-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .step-tab:hover {
+      background: var(--surface-subtle);
+      color: var(--ink);
+    }
+
+    .step-tab:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    .step-tab.active {
+      background: var(--brand-soft);
+      color: var(--brand);
+      border-color: var(--brand-border);
+      font-weight: 600;
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--border);
+      color: var(--ink-secondary);
+      font-size: 0.78rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+    }
+
+    .step-tab.active .step-num {
+      background: var(--brand);
+      color: #ffffff;
+    }
+
+    /* Main Container */
+    .main-container {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: var(--space-6);
+    }
+
+    .view-panel {
+      display: none;
+    }
+
+    .view-panel.active {
+      display: block;
+    }
+
+    /* Cards & Layout Grids */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      padding: var(--space-6);
+    }
+
+    .card-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--space-3);
+      margin-bottom: var(--space-5);
+    }
+
+    .card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+
+    .card-desc {
+      margin: 4px 0 0;
+      font-size: 0.94rem;
+      color: var(--muted);
+    }
+
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+      align-items: start;
+    }
+
+    @media (min-width: 900px) {
+      .split-layout.schools-grid {
+        grid-template-columns: 380px 1fr;
+      }
+      .split-layout.sports-grid {
+        grid-template-columns: 360px 1fr;
+      }
+    }
+
+    /* Form Controls */
+    .form-group {
+      margin-bottom: var(--space-4);
+    }
+
+    .form-label {
+      display: block;
+      font-weight: 600;
+      font-size: 0.95rem;
+      margin-bottom: var(--space-2);
+      color: var(--ink);
+    }
+
+    .form-hint {
+      display: block;
+      font-size: 0.86rem;
+      color: var(--muted);
+      margin-top: var(--space-1);
+    }
+
+    .input-text,
+    .input-textarea,
+    .input-select {
+      width: 100%;
+      font-family: var(--font-body);
+      font-size: 0.98rem;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--ink);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .input-textarea {
+      resize: vertical;
+      min-height: 92px;
+      line-height: 1.5;
+    }
+
+    .input-text:focus,
+    .input-textarea:focus,
+    .input-select:focus {
+      outline: none;
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.14);
+    }
+
+    .error-msg {
+      margin-top: var(--space-2);
+      font-size: 0.88rem;
+      color: var(--danger);
+      background: var(--danger-soft);
+      border: 1px solid var(--danger-border);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      display: none;
+    }
+
+    .error-msg.visible {
+      display: block;
+    }
+
+    /* Buttons */
+    .btn {
+      font-family: var(--font-heading);
+      font-size: 0.94rem;
+      font-weight: 500;
+      padding: 10px 18px;
+      border-radius: var(--radius-sm);
+      border: 1px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--space-2);
+      transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.05s ease;
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: var(--brand-ink);
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-hover);
+    }
+
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--ink-secondary);
+      border-color: var(--border-strong);
+    }
+
+    .btn-secondary:hover {
+      background: var(--surface-subtle);
+      color: var(--ink);
+    }
+
+    .btn-danger-ghost {
+      background: transparent;
+      color: var(--muted);
+      padding: 6px 10px;
+      font-size: 0.86rem;
+      font-family: var(--font-body);
+    }
+
+    .btn-danger-ghost:hover {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 0.86rem;
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    /* Empty States */
+    .empty-state {
+      text-align: center;
+      padding: var(--space-8) var(--space-4);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius);
+      background: var(--surface-subtle);
+    }
+
+    .empty-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--brand-soft);
+      color: var(--brand);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-3);
+    }
+
+    .empty-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: var(--space-1);
+    }
+
+    .empty-desc {
+      font-size: 0.92rem;
+      color: var(--muted);
+      max-width: 440px;
+      margin: 0 auto var(--space-4);
+    }
+
+    /* School & Sport Lists */
+    .item-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .list-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+
+    .list-row:hover {
+      border-color: var(--border-strong);
+      background: var(--surface-subtle);
+    }
+
+    .list-row-name {
+      font-weight: 500;
+      color: var(--ink);
+      word-break: break-word;
+    }
+
+    .sport-item-btn {
+      width: 100%;
+      text-align: left;
+      font-family: var(--font-body);
+      font-size: 0.98rem;
+      padding: 12px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--ink);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      transition: all 0.15s ease;
+    }
+
+    .sport-item-btn:hover {
+      border-color: var(--brand-border);
+      background: var(--surface-subtle);
+    }
+
+    .sport-item-btn.selected {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+      font-weight: 600;
+      color: var(--brand-hover);
+    }
+
+    .sport-row-wrap {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    /* School Entry Checklist in Step 2 */
+    .toolbar-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+
+    .entry-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2);
+    }
+
+    .entry-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-3);
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+
+    .entry-row.checked {
+      border-color: var(--brand-border);
+      background: #f8fbff;
+    }
+
+    .entry-label {
+      display: flex;
+      align-items: center;
+      gap: var(--space-3);
+      cursor: pointer;
+      flex: 1;
+      min-width: 200px;
+      font-weight: 500;
+    }
+
+    .entry-checkbox {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--brand);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .seed-control {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-size: 0.88rem;
+      color: var(--ink-secondary);
+    }
+
+    .seed-select {
+      font-family: var(--font-body);
+      font-size: 0.88rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--ink);
+    }
+
+    /* Step 3: Draw Controls */
+    .draw-config-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: var(--space-6);
+      margin-bottom: var(--space-6);
+    }
+
+    @media (min-width: 960px) {
+      .draw-config-grid {
+        grid-template-columns: 320px 1fr;
+      }
+    }
+
+    .method-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: var(--space-3);
+      margin-bottom: var(--space-4);
+    }
+
+    .method-card {
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      padding: var(--space-4);
+      cursor: pointer;
+      background: var(--surface);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .method-card:hover {
+      border-color: var(--brand);
+      background: var(--surface-subtle);
+    }
+
+    .method-card.selected {
+      border-color: var(--brand);
+      background: var(--brand-soft);
+      box-shadow: 0 0 0 1px var(--brand);
+    }
+
+    .method-card-top {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+      font-family: var(--font-heading);
+      font-weight: 600;
+      font-size: 0.98rem;
+      color: var(--ink);
+    }
+
+    .method-card.selected .method-card-top {
+      color: var(--brand-hover);
+    }
+
+    .method-card-desc {
+      font-size: 0.86rem;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .method-options-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-3) var(--space-4);
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--space-4);
+    }
+
+    .inline-check-label {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      cursor: pointer;
+      font-size: 0.94rem;
+      font-weight: 500;
+    }
+
+    /* Standard Explanation Callout */
+    .standard-note {
+      background: #f8fafc;
+      border-left: 4px solid var(--brand);
+      border-top: 1px solid var(--border);
+      border-right: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      padding: var(--space-4) var(--space-5);
+      margin-bottom: var(--space-6);
+    }
+
+    .standard-note-title {
+      font-family: var(--font-heading);
+      font-size: 0.96rem;
+      font-weight: 600;
+      color: var(--brand-hover);
+      margin-bottom: 4px;
+    }
+
+    .standard-note-body {
+      font-size: 0.93rem;
+      color: var(--ink-secondary);
+      margin: 0;
+    }
+
+    /* Visual Knockout Bracket */
+    .bracket-scroll-wrapper {
+      overflow-x: auto;
+      padding-bottom: var(--space-4);
+      margin-bottom: var(--space-6);
+    }
+
+    .bracket-board {
+      display: flex;
+      align-items: stretch;
+      min-width: max-content;
+      gap: 0;
+    }
+
+    .bracket-round-col {
+      width: 260px;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+      margin-right: 36px;
+    }
+
+    .bracket-round-col:last-child {
+      margin-right: 0;
+    }
+
+    .bracket-round-header {
+      text-align: center;
+      font-family: var(--font-heading);
+      font-size: 0.92rem;
+      font-weight: 600;
+      padding: 8px 12px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: var(--space-4);
+      color: var(--ink-secondary);
+    }
+
+    .bracket-round-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bracket-pair {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Connector lines between paired matches to next round */
+    .bracket-pair.has-connector::after {
+      content: "";
+      position: absolute;
+      right: -18px;
+      top: 25%;
+      bottom: 25%;
+      width: 18px;
+      border-top: 2px solid var(--border-strong);
+      border-bottom: 2px solid var(--border-strong);
+      border-right: 2px solid var(--border-strong);
+      border-radius: 0 6px 6px 0;
+      pointer-events: none;
+    }
+
+    .bracket-pair.has-connector::before {
+      content: "";
+      position: absolute;
+      right: -36px;
+      top: 50%;
+      width: 18px;
+      border-top: 2px solid var(--border-strong);
+      pointer-events: none;
+    }
+
+    .bracket-slot-cell {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      padding: 6px 0;
+    }
+
+    .match-box {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-sm);
+      overflow: hidden;
+    }
+
+    .match-box.is-bye {
+      border-style: dashed;
+      border-color: var(--bye-border);
+      background: #fafffd;
+    }
+
+    .match-box-head {
+      padding: 4px 10px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: var(--surface-subtle);
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .match-box.is-bye .match-box-head {
+      background: var(--bye-bg);
+      color: var(--bye-ink);
+      border-bottom-color: var(--bye-border);
+    }
+
+    .match-team-row {
+      padding: 7px 10px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      border-bottom: 1px solid var(--border);
+      min-height: 36px;
+    }
+
+    .match-team-row:last-child {
+      border-bottom: none;
+    }
+
+    .match-team-row.placeholder-team {
+      color: var(--muted);
+      font-style: italic;
+      font-size: 0.86rem;
+    }
+
+    .match-team-row.bye-row {
+      color: var(--bye-ink);
+      font-size: 0.84rem;
+      background: rgba(236, 253, 245, 0.5);
+    }
+
+    .seed-tag {
+      font-size: 0.74rem;
+      font-weight: 600;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--seed-bg);
+      color: var(--seed-ink);
+      border: 1px solid var(--seed-border);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Group Stage & Round Robin Cards */
+    .groups-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: var(--space-5);
+      margin-bottom: var(--space-6);
+    }
+
+    .group-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .group-card-header {
+      background: var(--brand-soft);
+      border-bottom: 1px solid var(--brand-border);
+      padding: 12px 16px;
+      font-family: var(--font-heading);
+      font-weight: 600;
+      color: var(--brand-hover);
+      font-size: 1rem;
+    }
+
+    .group-card-body {
+      padding: var(--space-4);
+    }
+
+    .group-team-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 var(--space-4);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .group-team-item {
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      font-size: 0.94rem;
+    }
+
+    .group-team-item:last-child {
+      border-bottom: none;
+    }
+
+    .group-team-pos {
+      font-weight: 600;
+      color: var(--muted);
+      margin-right: 8px;
+    }
+
+    /* Fixture Tables */
+    .section-subtitle {
+      font-family: var(--font-heading);
+      font-size: 1.02rem;
+      font-weight: 600;
+      margin: 0 0 var(--space-3);
+      color: var(--ink);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .fixture-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.93rem;
+      background: var(--surface);
+    }
+
+    .fixture-table th,
+    .fixture-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .fixture-table th {
+      background: var(--surface-subtle);
+      font-family: var(--font-heading);
+      font-weight: 600;
+      font-size: 0.86rem;
+      color: var(--ink-secondary);
+      white-space: nowrap;
+    }
+
+    .fixture-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .fixture-table tbody tr:hover {
+      background: var(--surface-subtle);
+    }
+
+    .vs-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--surface-subtle);
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 0 6px;
+    }
+
+    .rest-label {
+      color: var(--bye-ink);
+      background: var(--bye-bg);
+      border: 1px solid var(--bye-border);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.84rem;
+      font-weight: 500;
+    }
+
+    .third-place-wrap {
+      max-width: 340px;
+      margin-bottom: var(--space-6);
+    }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand-block">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+            <path d="M4 22h16"></path>
+            <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path>
+            <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path>
+            <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"></path>
+          </svg>
+        </div>
+        <div>
+          <h1 class="app-title">ระบบแบ่งสายการแข่งขันกีฬานักเรียน</h1>
+          <p class="app-subtitle">จัดการโรงเรียนที่ลงแข่งขันไม่เท่ากันในแต่ละประเภทกีฬา พร้อมจัดสายตามหลักมาตรฐาน</p>
+        </div>
+      </div>
+
+      <nav class="step-nav" aria-label="ขั้นตอนการใช้งาน">
+        <button type="button" class="step-tab active" data-step="schools">
+          <span class="step-num">1</span>
+          <span>รายชื่อโรงเรียน</span>
+        </button>
+        <button type="button" class="step-tab" data-step="sports">
+          <span class="step-num">2</span>
+          <span>ประเภทกีฬาและทีมที่ลงแข่ง</span>
+        </button>
+        <button type="button" class="step-tab" data-step="draw">
+          <span class="step-num">3</span>
+          <span>แบ่งสายการแข่งขัน</span>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="main-container">
+    <!-- STEP 1: SCHOOLS -->
+    <section id="view-schools" class="view-panel active" aria-labelledby="heading-schools">
+      <div class="split-layout schools-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 id="heading-schools" class="card-title">เพิ่มโรงเรียนที่เข้าร่วม</h2>
+              <p class="card-desc">ระบุชื่อโรงเรียนที่เข้าร่วมการแข่งขันครั้งนี้</p>
+            </div>
+          </div>
+
+          <form id="form-add-school" novalidate>
+            <div class="form-group">
+              <label for="input-school-names" class="form-label">ชื่อโรงเรียน</label>
+              <textarea
+                id="input-school-names"
+                class="input-textarea"
+                placeholder="พิมพ์ชื่อโรงเรียน (หากมีหลายโรงเรียน สามารถพิมพ์แยกบรรทัดละ 1 โรงเรียนเพื่อเพิ่มพร้อมกันได้)"
+              ></textarea>
+              <span class="form-hint">สามารถวางรายชื่อหลายบรรทัดได้ ระบบจะตัดชื่อที่ซ้ำออกให้อัตโนมัติ</span>
+              <div id="error-school" class="error-msg" role="alert"></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">เพิ่มรายชื่อโรงเรียน</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">รายชื่อโรงเรียนในระบบ</h2>
+              <p class="card-desc">โรงเรียนทั้งหมดที่จะนำไปเลือกส่งทีมในแต่ละประเภทกีฬา</p>
+            </div>
+            <button type="button" id="btn-to-sports" class="btn btn-secondary btn-sm">ไปตั้งค่าประเภทกีฬา &rarr;</button>
+          </div>
+
+          <div id="schools-list-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: SPORTS & UNEQUAL SCHOOL ENTRIES -->
+    <section id="view-sports" class="view-panel" aria-labelledby="heading-sports">
+      <div class="split-layout sports-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2 id="heading-sports" class="card-title">ประเภทกีฬา / รุ่นการแข่งขัน</h2>
+              <p class="card-desc">เพิ่มรายการกีฬาที่เปิดทำการแข่งขัน</p>
+            </div>
+          </div>
+
+          <form id="form-add-sport" novalidate>
+            <div class="form-group">
+              <label for="input-sport-name" class="form-label">ชื่อประเภทกีฬาและรุ่น</label>
+              <input
+                type="text"
+                id="input-sport-name"
+                class="input-text"
+                placeholder="เช่น ฟุตบอลชาย รุ่นไม่เกิน 15 ปี"
+              >
+              <div id="error-sport" class="error-msg" role="alert"></div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">เพิ่มประเภทกีฬา</button>
+          </form>
+
+          <hr style="border: 0; border-top: 1px solid var(--border); margin: var(--space-5) 0;">
+
+          <div id="sports-list-container"></div>
+        </div>
+
+        <div class="card">
+          <div id="sport-entries-container"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3: STANDARD TOURNAMENT DRAW -->
+    <section id="view-draw" class="view-panel" aria-labelledby="heading-draw">
+      <div id="draw-workspace-container"></div>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // Application State (starts empty as required)
+      const state = {
+        activeStep: 'schools',
+        schools: [], // { id, name }
+        sports: [],  // { id, name, schoolIds: [], seeds: { [schoolId]: number } }
+        selectedSportIdForEntries: null,
+        selectedSportIdForDraw: null,
+        drawConfigs: {}, // { [sportId]: { method: 'knockout'|'groups'|'roundrobin', groupCount: 2, thirdPlace: true } }
+        draws: {}        // { [sportId]: generatedDrawObject }
+      };
+
+      let idSeq = 1;
+      function nextId(prefix) {
+        return prefix + '_' + (idSeq++);
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function getSchoolById(id) {
+        return state.schools.find(function (s) { return s.id === id; }) || null;
+      }
+
+      function getSportById(id) {
+        return state.sports.find(function (sp) { return sp.id === id; }) || null;
+      }
+
+      // Recommended standard format based on participating team count
+      function getDefaultConfigForSport(teamCount) {
+        if (teamCount >= 2 && teamCount <= 4) {
+          return { method: 'roundrobin', groupCount: 2, thirdPlace: true };
+        }
+        if (teamCount >= 6 && teamCount <= 8) {
+          return { method: 'groups', groupCount: 2, thirdPlace: true };
+        }
+        return { method: 'knockout', groupCount: 2, thirdPlace: true };
+      }
+
+      function ensureDrawConfig(sport) {
+        if (!state.drawConfigs[sport.id]) {
+          state.drawConfigs[sport.id] = getDefaultConfigForSport(sport.schoolIds.length);
+        }
+        const cfg = state.drawConfigs[sport.id];
+        const maxGroups = Math.max(2, Math.floor(sport.schoolIds.length / 2));
+        if (cfg.groupCount > maxGroups) {
+          cfg.groupCount = maxGroups;
+        }
+        if (cfg.groupCount < 2) {
+          cfg.groupCount = 2;
+        }
+        return cfg;
+      }
+
+      // Fisher-Yates unbiased shuffle
+      function shuffleArray(arr) {
+        const copy = arr.slice();
+        for (let i = copy.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const temp = copy[i];
+          copy[i] = copy[j];
+          copy[j] = temp;
+        }
+        return copy;
+      }
+
+      // Order schools so explicit seeds come first (1, 2, 3...), followed by randomly drawn unseeded schools
+      function buildSeededAndDrawnList(sport) {
+        const seeded = [];
+        const unseeded = [];
+
+        sport.schoolIds.forEach(function (sid) {
+          const school = getSchoolById(sid);
+          if (!school) return;
+          const seedNum = sport.seeds[sid] ? Number(sport.seeds[sid]) : null;
+          if (seedNum && seedNum > 0) {
+            seeded.push({ id: school.id, name: school.name, seed: seedNum });
+          } else {
+            unseeded.push({ id: school.id, name: school.name, seed: null });
+          }
+        });
+
+        seeded.sort(function (a, b) { return a.seed - b.seed; });
+        const drawnUnseeded = shuffleArray(unseeded);
+        return seeded.concat(drawnUnseeded);
+      }
+
+      /* =====================================================================
+         STANDARD TOURNAMENT ALGORITHMS (หลักมาตรฐานการแบ่งสายการแข่งขันกีฬา)
+         ===================================================================== */
+
+      // 1. Standard Bracket Seeding Positions of size P = 2^k
+      // Guarantees Seed 1 & 2 are in opposite halves (top/bottom), Seed 3 & 4 in opposite quarters,
+      // and Byes (positions > N) are distributed evenly between Upper and Lower halves in Round 1 only.
+      function generateStandardBracketOrder(bracketSize) {
+        if (bracketSize <= 2) return [1, 2];
+        let order = [1, 2];
+        while (order.length < bracketSize) {
+          const nextOrder = [];
+          const sum = order.length * 2 + 1;
+          for (let i = 0; i < order.length; i++) {
+            if (i % 2 === 0) {
+              nextOrder.push(order[i], sum - order[i]);
+            } else {
+              nextOrder.push(sum - order[i], order[i]);
+            }
+          }
+          order = nextOrder;
+        }
+        return order;
+      }
+
+      function getRoundTitle(teamsInRound, roundIndex, totalRounds) {
+        if (teamsInRound === 2) return 'รอบชิงชนะเลิศ';
+        if (teamsInRound === 4) return 'รอบรองชนะเลิศ';
+        if (teamsInRound === 8) return 'รอบก่อนรองชนะเลิศ';
+        if (roundIndex === 0) return 'รอบแรก (' + teamsInRound + ' สาย)';
+        return 'รอบ ' + teamsInRound + ' ทีม';
+      }
+
+      function generateKnockoutDraw(sport, includeThirdPlace) {
+        const orderedTeams = buildSeededAndDrawnList(sport);
+        const N = orderedTeams.length;
+        const powerExp = Math.ceil(Math.log2(N));
+        const P = Math.pow(2, powerExp);
+        const byeCount = P - N;
+        const totalRounds = powerExp;
+        const seedOrder = generateStandardBracketOrder(P);
+
+        const rounds = [];
+        const allScheduledMatches = [];
+        let matchNumberCounter = 1;
+
+        // Round 1 construction
+        const round1Matches = [];
+        let upperByes = 0;
+        let lowerByes = 0;
+
+        for (let i = 0; i < P; i += 2) {
+          const rankA = seedOrder[i];
+          const rankB = seedOrder[i + 1];
+          const teamA = rankA <= N ? orderedTeams[rankA - 1] : null;
+          const teamB = rankB <= N ? orderedTeams[rankB - 1] : null;
+          const isBye = (!teamA || !teamB);
+
+          if (isBye) {
+            if (i < P / 2) upperByes++;
+            else lowerByes++;
+          }
+
+          let matchNo = null;
+          let advancingTeam = null;
+          if (isBye) {
+            advancingTeam = teamA || teamB;
+          } else {
+            matchNo = matchNumberCounter++;
+          }
+
+          const mObj = {
+            roundIndex: 0,
+            slotIndex: i / 2,
+            matchNo: matchNo,
+            isBye: isBye,
+            teamA: teamA,
+            teamB: teamB,
+            labelA: teamA ? teamA.name : 'ได้บาย (Bye)',
+            labelB: teamB ? teamB.name : 'ได้บาย (Bye)',
+            advancingTeam: advancingTeam
+          };
+          round1Matches.push(mObj);
+
+          if (!isBye) {
+            allScheduledMatches.push({
+              matchNo: matchNo,
+              roundTitle: getRoundTitle(P, 0, totalRounds),
+              teamA: teamA,
+              teamB: teamB,
+              labelA: teamA.name,
+              labelB: teamB.name
+            });
+          }
+        }
+        rounds.push({
+          title: getRoundTitle(P, 0, totalRounds),
+          matches: round1Matches
+        });
+
+        // Subsequent rounds
+        for (let r = 1; r < totalRounds; r++) {
+          const prevMatches = rounds[r - 1].matches;
+          const teamsInThisRound = P / Math.pow(2, r);
+          const roundTitle = getRoundTitle(teamsInThisRound, r, totalRounds);
+          const currentMatches = [];
+
+          for (let i = 0; i < prevMatches.length; i += 2) {
+            const feederA = prevMatches[i];
+            const feederB = prevMatches[i + 1];
+            const matchNo = matchNumberCounter++;
+
+            const knownA = feederA.advancingTeam || null;
+            const knownB = feederB.advancingTeam || null;
+            const labelA = knownA ? knownA.name : ('ผู้ชนะ คู่ที่ ' + feederA.matchNo);
+            const labelB = knownB ? knownB.name : ('ผู้ชนะ คู่ที่ ' + feederB.matchNo);
+
+            const mObj = {
+              roundIndex: r,
+              slotIndex: i / 2,
+              matchNo: matchNo,
+              isBye: false,
+              teamA: knownA,
+              teamB: knownB,
+              labelA: labelA,
+              labelB: labelB,
+              advancingTeam: null
+            };
+            currentMatches.push(mObj);
+
+            // If a 3rd place match is enabled, insert it right before the Final match number!
+            if (r === totalRounds - 1 && includeThirdPlace && N >= 4) {
+              const semiA = prevMatches[0];
+              const semiB = prevMatches[1];
+              const thirdMatchNo = matchNo;
+              const finalMatchNo = matchNumberCounter++;
+              mObj.matchNo = finalMatchNo;
+
+              const thirdObj = {
+                matchNo: thirdMatchNo,
+                roundTitle: 'รอบชิงอันดับที่ 3',
+                teamA: null,
+                teamB: null,
+                labelA: 'ผู้แพ้ คู่ที่ ' + semiA.matchNo,
+                labelB: 'ผู้แพ้ คู่ที่ ' + semiB.matchNo
+              };
+              allScheduledMatches.push(thirdObj);
+              allScheduledMatches.push({
+                matchNo: finalMatchNo,
+                roundTitle: roundTitle,
+                teamA: knownA,
+                teamB: knownB,
+                labelA: labelA,
+                labelB: labelB
+              });
+            } else {
+              allScheduledMatches.push({
+                matchNo: matchNo,
+                roundTitle: roundTitle,
+                teamA: knownA,
+                teamB: knownB,
+                labelA: labelA,
+                labelB: labelB
+              });
+            }
+          }
+
+          rounds.push({
+            title: roundTitle,
+            matches: currentMatches
+          });
+        }
+
+        let thirdPlaceMatch = null;
+        if (includeThirdPlace && N >= 4) {
+          thirdPlaceMatch = allScheduledMatches.find(function (m) {
+            return m.roundTitle === 'รอบชิงอันดับที่ 3';
+          }) || null;
+        }
+
+        let explanation = '';
+        if (byeCount === 0) {
+          explanation = 'มีโรงเรียนเข้าร่วม ' + N + ' ทีม ซึ่งตรงกับขนาดผังมาตรฐาน 2^' + powerExp + ' = ' + P + ' ทีมพอดี จึงไม่มีทีมได้บาย (Bye) ทุกทีมแข่งขันตั้งแต่นัดแรกแบบแพ้คัดออก';
+        } else {
+          explanation = 'มีโรงเรียนเข้าร่วม ' + N + ' ทีม ใช้ผังมาตรฐานขนาด 2^' + powerExp + ' = ' + P + ' ทีม คำนวณจำนวนทีมได้บายในรอบแรก (' + P + ' - ' + N + ' = ' + byeCount + ' ทีม) แบ่งเป็นสายบน ' + upperByes + ' ทีม และสายล่าง ' + lowerByes + ' ทีม ตามหลักความสมดุลของสาย โดยการได้บายมีเฉพาะในรอบแรกเท่านั้น';
+        }
+
+        return {
+          method: 'knockout',
+          explanation: explanation,
+          rounds: rounds,
+          thirdPlaceMatch: thirdPlaceMatch,
+          schedule: allScheduledMatches
+        };
+      }
+
+      // Standard Circle Method (Berger rotation) for Round Robin fixtures
+      function generateCircleFixtures(teamsList) {
+        const list = teamsList.slice();
+        const hasOdd = list.length % 2 !== 0;
+        if (hasOdd) {
+          list.push({ id: '__BYE__', name: 'BYE', isBye: true });
+        }
+
+        const M = list.length;
+        const numRounds = M - 1;
+        const half = M / 2;
+        const rounds = [];
+
+        const working = list.slice();
+        for (let r = 0; r < numRounds; r++) {
+          const pairings = [];
+          let restingTeam = null;
+
+          for (let i = 0; i < half; i++) {
+            const t1 = working[i];
+            const t2 = working[M - 1 - i];
+            if (t1.isBye) {
+              restingTeam = t2;
+            } else if (t2.isBye) {
+              restingTeam = t1;
+            } else {
+              // Alternate home/away on fixed index 0 for fairness
+              if (i === 0 && r % 2 === 1) {
+                pairings.push({ teamA: t2, teamB: t1 });
+              } else {
+                pairings.push({ teamA: t1, teamB: t2 });
+              }
+            }
+          }
+
+          rounds.push({
+            roundNo: r + 1,
+            pairings: pairings,
+            restingTeam: restingTeam
+          });
+
+          // Rotate clockwise keeping index 0 fixed
+          const last = working.pop();
+          working.splice(1, 0, last);
+        }
+
+        return rounds;
+      }
+
+      // 2. Standard Round Robin (พบกันหมด)
+      function generateRoundRobinDraw(sport) {
+        const orderedTeams = buildSeededAndDrawnList(sport);
+        const N = orderedTeams.length;
+        const rounds = generateCircleFixtures(orderedTeams);
+
+        let matchSeq = 1;
+        rounds.forEach(function (rd) {
+          rd.pairings.forEach(function (p) {
+            p.matchNo = matchSeq++;
+          });
+        });
+
+        const oddNote = (N % 2 !== 0)
+          ? ' เนื่องจากจำนวนทีมเป็นเลขคี่ ในแต่ละรอบจะมีทีมพักการแข่งขัน (ได้บายประจำรอบ) รอบละ 1 โรงเรียนหมุนเวียนกันครบทุกทีม'
+          : ' จำนวนทีมเป็นเลขคู่ ทุกโรงเรียนจะลงแข่งขันพร้อมกันครบทุกคู่ในแต่ละรอบ';
+
+        return {
+          method: 'roundrobin',
+          explanation: 'จัดโปรแกรมแบบพบกันหมดด้วยวิธีหมุนวนมาตรฐาน (Circle Method) สำหรับ ' + N + ' โรงเรียน แบ่งการแข่งขันออกเป็น ' + rounds.length + ' รอบ' + oddNote,
+          rounds: rounds
+        };
+      }
+
+      // 3. Standard Group Stage / Pool Play (แบ่งสายพบกันหมดรอบแรก แบบงูเลื้อย Snake Distribution)
+      function generateGroupsDraw(sport, groupCount) {
+        const orderedTeams = buildSeededAndDrawnList(sport);
+        const N = orderedTeams.length;
+        const G = Math.max(2, Math.min(groupCount, Math.floor(N / 2)));
+
+        const groupBuckets = [];
+        for (let g = 0; g < G; g++) {
+          const letter = String.fromCharCode(65 + g);
+          groupBuckets.push({
+            name: 'สาย ' + letter,
+            teams: [],
+            rounds: []
+          });
+        }
+
+        // Snake distribution across groups so sizes differ by at most 1 and seeds are balanced
+        orderedTeams.forEach(function (team, idx) {
+          const row = Math.floor(idx / G);
+          const col = idx % G;
+          const targetGroup = (row % 2 === 0) ? col : (G - 1 - col);
+          groupBuckets[targetGroup].teams.push(team);
+        });
+
+        let matchSeq = 1;
+        groupBuckets.forEach(function (grp) {
+          grp.rounds = generateCircleFixtures(grp.teams);
+          grp.rounds.forEach(function (rd) {
+            rd.pairings.forEach(function (p) {
+              p.matchNo = matchSeq++;
+            });
+          });
+        });
+
+        return {
+          method: 'groups',
+          explanation: 'แบ่ง ' + N + ' โรงเรียน ออกเป็น ' + G + ' สาย ด้วยหลักการวางทีมสลับฟันปลา (Snake Seeding) เพื่อให้จำนวนโรงเรียนในแต่ละสายสมดุลกัน (ต่างกันไม่เกิน 1 ทีม) และแยกทีมวางไม่ให้อยู่สายเดียวกัน จากนั้นจัดโปรแกรมพบกันหมดภายในแต่ละสาย',
+          groups: groupBuckets
+        };
+      }
+
+      /* =====================================================================
+         UI RENDERING FUNCTIONS
+         ===================================================================== */
+
+      function switchStep(stepName) {
+        state.activeStep = stepName;
+        document.querySelectorAll('.step-tab').forEach(function (btn) {
+          btn.classList.toggle('active', btn.getAttribute('data-step') === stepName);
+        });
+        document.querySelectorAll('.view-panel').forEach(function (panel) {
+          panel.classList.toggle('active', panel.id === 'view-' + stepName);
+        });
+        renderAll();
+      }
+
+      function renderSchoolsView() {
+        const container = document.getElementById('schools-list-container');
+        if (state.schools.length === 0) {
+          container.innerHTML =
+            '<div class="empty-state">' +
+              '<div class="empty-icon" aria-hidden="true">' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>' +
+              '</div>' +
+              '<div class="empty-title">ยังไม่มีรายชื่อโรงเรียน</div>' +
+              '<p class="empty-desc">เริ่มต้นด้วยการเพิ่มชื่อโรงเรียนที่เข้าร่วมการแข่งขันทางด้านซ้าย เพื่อนำไปจัดเข้าประเภทกีฬาต่อไป</p>' +
+            '</div>';
+          return;
+        }
+
+        let html = '<ul class="item-list">';
+        state.schools.forEach(function (school) {
+          html +=
+            '<li class="list-row">' +
+              '<span class="list-row-name">' + escapeHtml(school.name) + '</span>' +
+              '<button type="button" class="btn btn-danger-ghost" data-remove-school="' + school.id + '">ลบ</button>' +
+            '</li>';
+        });
+        html += '</ul>';
+        container.innerHTML = html;
+      }
+
+      function renderSportsView() {
+        const sportsContainer = document.getElementById('sports-list-container');
+        const entriesContainer = document.getElementById('sport-entries-container');
+
+        if (state.sports.length === 0) {
+          sportsContainer.innerHTML =
+            '<div class="empty-state" style="padding: var(--space-5) var(--space-3);">' +
+              '<div class="empty-title">ยังไม่มีประเภทกีฬา</div>' +
+              '<p class="empty-desc" style="margin-bottom:0;">เพิ่มประเภทกีฬา เช่น ฟุตบอลชาย วอลเลย์บอลหญิง หรือเซปักตะกร้อ เพื่อเลือกโรงเรียนที่ลงแข่งในแต่ละรายการ</p>' +
+            '</div>';
+
+          entriesContainer.innerHTML =
+            '<div class="empty-state">' +
+              '<div class="empty-icon" aria-hidden="true">' +
+                '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>' +
+              '</div>' +
+              '<div class="empty-title">เลือกหรือเพิ่มประเภทกีฬาก่อน</div>' +
+              '<p class="empty-desc">เมื่อเพิ่มประเภทกีฬาแล้ว คุณจะสามารถติ๊กเลือกเฉพาะโรงเรียนที่ส่งทีมลงแข่งขันในกีฬานั้นๆ ได้อย่างอิสระ</p>' +
+            '</div>';
+          return;
+        }
+
+        if (!state.selectedSportIdForEntries || !getSportById(state.selectedSportIdForEntries)) {
+          state.selectedSportIdForEntries = state.sports[0].id;
+        }
+
+        let listHtml = '<div class="item-list">';
+        state.sports.forEach(function (sp) {
+          const isSelected = sp.id === state.selectedSportIdForEntries;
+          listHtml +=
+            '<div class="sport-row-wrap">' +
+              '<button type="button" class="sport-item-btn ' + (isSelected ? 'selected' : '') + '" data-select-sport="' + sp.id + '">' +
+                '<span>' + escapeHtml(sp.name) + '</span>' +
+              '</button>' +
+              '<button type="button" class="btn btn-danger-ghost" data-remove-sport="' + sp.id + '" aria-label="ลบ ' + escapeHtml(sp.name) + '">ลบ</button>' +
+            '</div>';
+        });
+        listHtml += '</div>';
+        sportsContainer.innerHTML = listHtml;
+
+        const currentSport = getSportById(state.selectedSportIdForEntries);
+        if (!currentSport) return;
+
+        if (state.schools.length === 0) {
+          entriesContainer.innerHTML =
+            '<div class="card-header">' +
+              '<div>' +
+                '<h2 class="card-title">' + escapeHtml(currentSport.name) + '</h2>' +
+                '<p class="card-desc">เลือกโรงเรียนที่ส่งทีมเข้าแข่งขันในรายการนี้</p>' +
+              '</div>' +
+            '</div>' +
+            '<div class="empty-state">' +
+              '<div class="empty-title">ยังไม่มีรายชื่อโรงเรียนในระบบ</div>' +
+              '<p class="empty-desc">กรุณาเพิ่มรายชื่อโรงเรียนในขั้นตอนที่ 1 ก่อน จึงจะสามารถเลือกโรงเรียนเข้าแข่งขันรายการนี้ได้</p>' +
+              '<button type="button" class="btn btn-primary btn-sm" data-goto-step="schools">ไปเพิ่มรายชื่อโรงเรียน</button>' +
+            '</div>';
+          return;
+        }
+
+        const maxSeedOptions = Math.min(8, Math.max(2, currentSport.schoolIds.length));
+
+        let entriesHtml =
+          '<div class="card-header">' +
+            '<div>' +
+              '<h2 class="card-title">' + escapeHtml(currentSport.name) + '</h2>' +
+              '<p class="card-desc">ติ๊กเลือกเฉพาะโรงเรียนที่ลงแข่งขันประเภทกีฬานี้ และกำหนดมือวาง (ถ้ามี)</p>' +
+            '</div>' +
+            '<button type="button" class="btn btn-primary btn-sm" data-goto-draw="' + currentSport.id + '">ไปหน้าแบ่งสายรายการนี้ &rarr;</button>' +
+          '</div>' +
+          '<div class="toolbar-actions">' +
+            '<button type="button" class="btn btn-secondary btn-sm" data-select-all-schools="' + currentSport.id + '">เลือกทุกโรงเรียน</button>' +
+            '<button type="button" class="btn btn-secondary btn-sm" data-clear-all-schools="' + currentSport.id + '">ล้างการเลือกทั้งหมด</button>' +
+          '</div>' +
+          '<div class="entry-grid">';
+
+        state.schools.forEach(function (school) {
+          const isChecked = currentSport.schoolIds.indexOf(school.id) !== -1;
+          const currentSeed = currentSport.seeds[school.id] ? Number(currentSport.seeds[school.id]) : 0;
+
+          let seedControlHtml = '';
+          if (isChecked) {
+            seedControlHtml += '<div class="seed-control"><label for="seed-' + school.id + '">สถานะทีมวาง:</label><select id="seed-' + school.id + '" class="seed-select" data-seed-school="' + school.id + '">';
+            seedControlHtml += '<option value="0"' + (currentSeed === 0 ? ' selected' : '') + '>ไม่ระบุ (จับสลากปกติ)</option>';
+            for (let s = 1; s <= maxSeedOptions; s++) {
+              seedControlHtml += '<option value="' + s + '"' + (currentSeed === s ? ' selected' : '') + '>มือวางอันดับ ' + s + '</option>';
+            }
+            seedControlHtml += '</select></div>';
+          }
+
+          entriesHtml +=
+            '<div class="entry-row ' + (isChecked ? 'checked' : '') + '">' +
+              '<label class="entry-label">' +
+                '<input type="checkbox" class="entry-checkbox" data-toggle-entry="' + school.id + '"' + (isChecked ? ' checked' : '') + '>' +
+                '<span>' + escapeHtml(school.name) + '</span>' +
+              '</label>' +
+              seedControlHtml +
+            '</div>';
+        });
+
+        entriesHtml += '</div>';
+        entriesContainer.innerHTML = entriesHtml;
+      }
+
+      function renderTeamCellContent(teamObj, fallbackText) {
+        if (!teamObj) {
+          return '<span>' + escapeHtml(fallbackText) + '</span>';
+        }
+        let badge = '';
+        if (teamObj.seed) {
+          badge = '<span class="seed-tag">มือวาง ' + teamObj.seed + '</span>';
+        }
+        return '<span>' + escapeHtml(teamObj.name) + '</span>' + badge;
+      }
+
+      function renderKnockoutResult(draw) {
+        const round1Count = draw.rounds[0].matches.length;
+        const boardHeight = Math.max(220, round1Count * 118);
+
+        let html =
+          '<div class="standard-note">' +
+            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (แพ้คัดออก Single Elimination)</div>' +
+            '<p class="standard-note-body">' + escapeHtml(draw.explanation) + '</p>' +
+          '</div>';
+
+        // Visual Bracket Tree
+        html += '<h3 class="section-subtitle">แผนผังสายการแข่งขัน</h3>';
+        html += '<div class="bracket-scroll-wrapper"><div class="bracket-board">';
+
+        draw.rounds.forEach(function (round, rIdx) {
+          const isFinalRound = (rIdx === draw.rounds.length - 1);
+          html += '<div class="bracket-round-col">';
+          html += '<div class="bracket-round-header">' + escapeHtml(round.title) + '</div>';
+          html += '<div class="bracket-round-body" style="min-height:' + boardHeight + 'px;">';
+
+          if (isFinalRound) {
+            const finalMatch = round.matches[0];
+            html +=
+              '<div class="bracket-pair">' +
+                '<div class="bracket-slot-cell">' +
+                  renderMatchBoxHtml(finalMatch) +
+                '</div>' +
+              '</div>';
+          } else {
+            for (let i = 0; i < round.matches.length; i += 2) {
+              const mTop = round.matches[i];
+              const mBottom = round.matches[i + 1];
+              html +=
+                '<div class="bracket-pair has-connector">' +
+                  '<div class="bracket-slot-cell">' + renderMatchBoxHtml(mTop) + '</div>' +
+                  '<div class="bracket-slot-cell">' + renderMatchBoxHtml(mBottom) + '</div>' +
+                '</div>';
+            }
+          }
+
+          html += '</div></div>';
+        });
+
+        html += '</div></div>';
+
+        // Optional 3rd place match box
+        if (draw.thirdPlaceMatch) {
+          html +=
+            '<div class="third-place-wrap">' +
+              '<h3 class="section-subtitle">คู่ชิงอันดับที่ 3</h3>' +
+              '<div class="match-box">' +
+                '<div class="match-box-head"><span>คู่ที่ ' + draw.thirdPlaceMatch.matchNo + '</span><span>ชิงอันดับ 3</span></div>' +
+                '<div class="match-team-row placeholder-team"><span>' + escapeHtml(draw.thirdPlaceMatch.labelA) + '</span></div>' +
+                '<div class="match-team-row placeholder-team"><span>' + escapeHtml(draw.thirdPlaceMatch.labelB) + '</span></div>' +
+              '</div>' +
+            '</div>';
+        }
+
+        // Sequential Match Fixture Table
+        html += '<h3 class="section-subtitle">ลำดับคู่การแข่งขันตามโปรแกรม</h3>';
+        html += '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>คู่ที่</th><th>รอบการแข่งขัน</th><th>ทีมที่ 1 (สายบน)</th><th></th><th>ทีมที่ 2 (สายล่าง)</th></tr></thead><tbody>';
+        draw.schedule.forEach(function (m) {
+          html +=
+            '<tr>' +
+              '<td><strong>คู่ที่ ' + m.matchNo + '</strong></td>' +
+              '<td>' + escapeHtml(m.roundTitle) + '</td>' +
+              '<td>' + (m.teamA ? renderTeamCellContent(m.teamA, m.labelA) : escapeHtml(m.labelA)) + '</td>' +
+              '<td><span class="vs-pill">พบ</span></td>' +
+              '<td>' + (m.teamB ? renderTeamCellContent(m.teamB, m.labelB) : escapeHtml(m.labelB)) + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table></div>';
+
+        return html;
+      }
+
+      function renderMatchBoxHtml(m) {
+        if (m.isBye) {
+          const adv = m.advancingTeam;
+          const topIsTeam = Boolean(m.teamA);
+          return (
+            '<div class="match-box is-bye">' +
+              '<div class="match-box-head"><span>ได้บายรอบแรก</span><span>ผ่านเข้ารอบ</span></div>' +
+              '<div class="match-team-row ' + (topIsTeam ? '' : 'bye-row') + '">' +
+                (topIsTeam ? renderTeamCellContent(adv, '') : '<span>ได้บาย (Bye)</span>') +
+              '</div>' +
+              '<div class="match-team-row ' + (!topIsTeam ? '' : 'bye-row') + '">' +
+                (!topIsTeam ? renderTeamCellContent(adv, '') : '<span>ได้บาย (Bye)</span>') +
+              '</div>' +
+            '</div>'
+          );
+        }
+
+        return (
+          '<div class="match-box">' +
+            '<div class="match-box-head"><span>คู่ที่ ' + m.matchNo + '</span></div>' +
+            '<div class="match-team-row ' + (m.teamA ? '' : 'placeholder-team') + '">' +
+              renderTeamCellContent(m.teamA, m.labelA) +
+            '</div>' +
+            '<div class="match-team-row ' + (m.teamB ? '' : 'placeholder-team') + '">' +
+              renderTeamCellContent(m.teamB, m.labelB) +
+            '</div>' +
+          '</div>'
+        );
+      }
+
+      function renderGroupsResult(draw) {
+        let html =
+          '<div class="standard-note">' +
+            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (แบ่งสายพบกันหมดรอบแรก)</div>' +
+            '<p class="standard-note-body">' + escapeHtml(draw.explanation) + '</p>' +
+          '</div>';
+
+        html += '<div class="groups-grid">';
+        draw.groups.forEach(function (grp) {
+          html +=
+            '<div class="group-card">' +
+              '<div class="group-card-header">' + escapeHtml(grp.name) + '</div>' +
+              '<div class="group-card-body">' +
+                '<ul class="group-team-list">';
+
+          grp.teams.forEach(function (t, idx) {
+            html +=
+              '<li class="group-team-item">' +
+                '<div><span class="group-team-pos">' + (idx + 1) + '.</span>' + escapeHtml(t.name) + '</div>' +
+                (t.seed ? '<span class="seed-tag">มือวาง ' + t.seed + '</span>' : '') +
+              '</li>';
+          });
+
+          html += '</ul>';
+          html += '<div class="section-subtitle" style="font-size:0.92rem;">โปรแกรมการแข่งขันใน' + escapeHtml(grp.name) + '</div>';
+          html += '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>รอบ</th><th>คู่แข่งขัน</th></tr></thead><tbody>';
+
+          grp.rounds.forEach(function (rd) {
+            rd.pairings.forEach(function (p) {
+              html +=
+                '<tr>' +
+                  '<td style="white-space:nowrap;">รอบ ' + rd.roundNo + ' (คู่ที่ ' + p.matchNo + ')</td>' +
+                  '<td>' + escapeHtml(p.teamA.name) + ' <span class="vs-pill">พบ</span> ' + escapeHtml(p.teamB.name) + '</td>' +
+                '</tr>';
+            });
+            if (rd.restingTeam) {
+              html +=
+                '<tr>' +
+                  '<td style="white-space:nowrap;">รอบ ' + rd.roundNo + '</td>' +
+                  '<td><span class="rest-label">พักการแข่งขัน: ' + escapeHtml(rd.restingTeam.name) + '</span></td>' +
+                '</tr>';
+            }
+          });
+
+          html += '</tbody></table></div></div></div>';
+        });
+        html += '</div>';
+        return html;
+      }
+
+      function renderRoundRobinResult(draw) {
+        let html =
+          '<div class="standard-note">' +
+            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (พบกันหมด Round Robin)</div>' +
+            '<p class="standard-note-body">' + escapeHtml(draw.explanation) + '</p>' +
+          '</div>';
+
+        html += '<div class="groups-grid">';
+        draw.rounds.forEach(function (rd) {
+          html +=
+            '<div class="group-card">' +
+              '<div class="group-card-header">รอบการแข่งขันที่ ' + rd.roundNo + '</div>' +
+              '<div class="group-card-body">' +
+                '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>คู่ที่</th><th>โปรแกรมการแข่งขัน</th></tr></thead><tbody>';
+
+          rd.pairings.forEach(function (p) {
+            html +=
+              '<tr>' +
+                '<td style="white-space:nowrap;"><strong>คู่ที่ ' + p.matchNo + '</strong></td>' +
+                '<td>' +
+                  escapeHtml(p.teamA.name) +
+                  (p.teamA.seed ? ' <span class="seed-tag">มือวาง ' + p.teamA.seed + '</span>' : '') +
+                  ' <span class="vs-pill">พบ</span> ' +
+                  escapeHtml(p.teamB.name) +
+                  (p.teamB.seed ? ' <span class="seed-tag">มือวาง ' + p.teamB.seed + '</span>' : '') +
+                '</td>' +
+              '</tr>';
+          });
+
+          if (rd.restingTeam) {
+            html +=
+              '<tr>' +
+                '<td>-</td>' +
+                '<td><span class="rest-label">พักการแข่งขัน (ได้บาย): ' + escapeHtml(rd.restingTeam.name) + '</span></td>' +
+              '</tr>';
+          }
+
+          html += '</tbody></table></div></div></div>';
+        });
+        html += '</div>';
+        return html;
+      }
+
+      function renderDrawView() {
+        const container = document.getElementById('draw-workspace-container');
+
+        if (state.sports.length === 0) {
+          container.innerHTML =
+            '<div class="card">' +
+              '<div class="empty-state">' +
+                '<div class="empty-icon" aria-hidden="true">' +
+                  '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>' +
+                '</div>' +
+                '<div class="empty-title">ยังไม่มีข้อมูลสำหรับแบ่งสายการแข่งขัน</div>' +
+                '<p class="empty-desc">กรุณาเพิ่มรายชื่อโรงเรียนและประเภทกีฬา พร้อมเลือกโรงเรียนที่ลงแข่งขันในแต่ละประเภทกีฬาก่อนทำการแบ่งสาย</p>' +
+                '<button type="button" class="btn btn-primary" data-goto-step="schools">เริ่มต้นเพิ่มรายชื่อโรงเรียน</button>' +
+              '</div>' +
+            '</div>';
+          return;
+        }
+
+        if (!state.selectedSportIdForDraw || !getSportById(state.selectedSportIdForDraw)) {
+          state.selectedSportIdForDraw = state.sports[0].id;
+        }
+
+        const currentSport = getSportById(state.selectedSportIdForDraw);
+        const validSchoolIds = currentSport.schoolIds.filter(function (id) { return Boolean(getSchoolById(id)); });
+        const N = validSchoolIds.length;
+        const cfg = ensureDrawConfig(currentSport);
+
+        let sportListHtml = '<div class="item-list">';
+        state.sports.forEach(function (sp) {
+          const isSelected = sp.id === currentSport.id;
+          sportListHtml +=
+            '<button type="button" class="sport-item-btn ' + (isSelected ? 'selected' : '') + '" data-draw-select-sport="' + sp.id + '">' +
+              '<span>' + escapeHtml(sp.name) + '</span>' +
+            '</button>';
+        });
+        sportListHtml += '</div>';
+
+        let rightPanelHtml = '';
+
+        if (N < 2) {
+          rightPanelHtml =
+            '<div class="card">' +
+              '<div class="card-header">' +
+                '<div>' +
+                  '<h2 id="heading-draw" class="card-title">' + escapeHtml(currentSport.name) + '</h2>' +
+                  '<p class="card-desc">การแบ่งสายการแข่งขันต้องมีโรงเรียนเข้าร่วมอย่างน้อย 2 โรงเรียนขึ้นไป</p>' +
+                '</div>' +
+              '</div>' +
+              '<div class="empty-state">' +
+                '<div class="empty-title">จำนวนโรงเรียนในประเภทกีฬานี้ยังไม่เพียงพอ</div>' +
+                '<p class="empty-desc">กรุณากลับไปติ๊กเลือกโรงเรียนที่ลงแข่งขันในรายการ "' + escapeHtml(currentSport.name) + '" อย่างน้อย 2 โรงเรียน</p>' +
+                '<button type="button" class="btn btn-primary btn-sm" data-edit-sport-entries="' + currentSport.id + '">ไปเลือกโรงเรียนที่ลงแข่งขัน</button>' +
+              '</div>' +
+            '</div>';
+        } else {
+          const canUseGroups = N >= 4;
+          if (!canUseGroups && cfg.method === 'groups') {
+            cfg.method = 'knockout';
+          }
+
+          let methodOptionsHtml = '';
+          if (cfg.method === 'knockout' && N >= 4) {
+            methodOptionsHtml =
+              '<div class="method-options-bar">' +
+                '<label class="inline-check-label">' +
+                  '<input type="checkbox" class="entry-checkbox" id="chk-third-place"' + (cfg.thirdPlace ? ' checked' : '') + '>' +
+                  '<span>เพิ่มคู่แข่งขันชิงอันดับที่ 3 (จากผู้แพ้ในรอบรองชนะเลิศ)</span>' +
+                '</label>' +
+              '</div>';
+          } else if (cfg.method === 'groups' && canUseGroups) {
+            const maxG = Math.floor(N / 2);
+            let opts = '';
+            for (let g = 2; g <= maxG; g++) {
+              opts += '<option value="' + g + '"' + (cfg.groupCount === g ? ' selected' : '') + '>แบ่งออกเป็น ' + g + ' สาย (สาย A - ' + String.fromCharCode(64 + g) + ')</option>';
+            }
+            methodOptionsHtml =
+              '<div class="method-options-bar">' +
+                '<label for="sel-group-count" style="font-weight:600; font-size:0.93rem;">จำนวนสายรอบแรก:</label>' +
+                '<select id="sel-group-count" class="seed-select" style="padding:7px 12px; font-size:0.93rem;">' + opts + '</select>' +
+              '</div>';
+          }
+
+          const currentDraw = state.draws[currentSport.id] || null;
+          let drawOutputHtml = '';
+          if (!currentDraw) {
+            drawOutputHtml =
+              '<div class="empty-state">' +
+                '<div class="empty-title">พร้อมจับสลากแบ่งสายการแข่งขัน</div>' +
+                '<p class="empty-desc">เลือกรูปแบบการแข่งขันตามมาตรฐานด้านบน แล้วกดปุ่ม "สุ่มจับสลากและสร้างสายการแข่งขัน" เพื่อสร้างผังการแข่งขัน</p>' +
+              '</div>';
+          } else if (currentDraw.method === 'knockout') {
+            drawOutputHtml = renderKnockoutResult(currentDraw);
+          } else if (currentDraw.method === 'groups') {
+            drawOutputHtml = renderGroupsResult(currentDraw);
+          } else if (currentDraw.method === 'roundrobin') {
+            drawOutputHtml = renderRoundRobinResult(currentDraw);
+          }
+
+          rightPanelHtml =
+            '<div class="card">' +
+              '<div class="card-header">' +
+                '<div>' +
+                  '<h2 id="heading-draw" class="card-title">' + escapeHtml(currentSport.name) + '</h2>' +
+                  '<p class="card-desc">เลือกรูปแบบการแบ่งสายตามหลักมาตรฐาน และสุ่มจับสลากจัดสาย</p>' +
+                '</div>' +
+                '<button type="button" class="btn btn-secondary btn-sm" data-edit-sport-entries="' + currentSport.id + '">แก้ไขรายชื่อโรงเรียนที่ลงแข่ง</button>' +
+              '</div>' +
+
+              '<div class="method-cards" role="radiogroup" aria-label="รูปแบบการแบ่งสาย">' +
+                '<div class="method-card ' + (cfg.method === 'knockout' ? 'selected' : '') + '" data-select-method="knockout" tabindex="0" role="radio" aria-checked="' + (cfg.method === 'knockout') + '">' +
+                  '<div class="method-card-top">แพ้คัดออก (Single Elimination)</div>' +
+                  '<div class="method-card-desc">คำนวณผัง 2^n จัดวางทีมได้บาย (Bye) เฉพาะรอบแรก แบ่งสายบน-สายล่างให้สมดุล</div>' +
+                '</div>' +
+
+                (canUseGroups ? (
+                  '<div class="method-card ' + (cfg.method === 'groups' ? 'selected' : '') + '" data-select-method="groups" tabindex="0" role="radio" aria-checked="' + (cfg.method === 'groups') + '">' +
+                    '<div class="method-card-top">แบ่งสายรอบแรก (Group Stage)</div>' +
+                    '<div class="method-card-desc">แบ่งสาย A, B, C... แบบงูเลื้อยให้จำนวนทีมสมดุลกัน พร้อมตารางพบกันหมดในสาย</div>' +
+                  '</div>'
+                ) : '') +
+
+                '<div class="method-card ' + (cfg.method === 'roundrobin' ? 'selected' : '') + '" data-select-method="roundrobin" tabindex="0" role="radio" aria-checked="' + (cfg.method === 'roundrobin') + '">' +
+                  '<div class="method-card-top">พบกันหมด (Round Robin)</div>' +
+                  '<div class="method-card-desc">แข่งขันพบกันทุกโรงเรียน จัดคู่แต่ละรอบด้วยวิธีหมุนวนมาตรฐาน (Circle Method)</div>' +
+                '</div>' +
+              '</div>' +
+
+              methodOptionsHtml +
+
+              '<div style="margin-bottom: var(--space-6);">' +
+                '<button type="button" id="btn-run-draw" class="btn btn-primary">' +
+                  (currentDraw ? 'สุ่มจับสลากแบ่งสายใหม่' : 'สุ่มจับสลากและสร้างสายการแข่งขัน') +
+                '</button>' +
+              '</div>' +
+
+              drawOutputHtml +
+            '</div>';
+        }
+
+        container.innerHTML =
+          '<div class="draw-config-grid">' +
+            '<div class="card">' +
+              '<div class="card-header" style="margin-bottom:var(--space-3);">' +
+                '<div>' +
+                  '<h3 class="card-title">เลือกประเภทกีฬา</h3>' +
+                  '<p class="card-desc">สลับดูหรือจัดสายแยกตามประเภทกีฬา</p>' +
+                '</div>' +
+              '</div>' +
+              sportListHtml +
+            '</div>' +
+            '<div>' + rightPanelHtml + '</div>' +
+          '</div>';
+      }
+
+      function renderAll() {
+        renderSchoolsView();
+        renderSportsView();
+        renderDrawView();
+      }
+
+      /* =====================================================================
+         EVENT HANDLERS
+         ===================================================================== */
+
+      // Step Navigation Tabs
+      document.querySelectorAll('.step-tab').forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          switchStep(tab.getAttribute('data-step'));
+        });
+      });
+
+      document.getElementById('btn-to-sports').addEventListener('click', function () {
+        switchStep('sports');
+      });
+
+      // Add Schools Form
+      document.getElementById('form-add-school').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const input = document.getElementById('input-school-names');
+        const errBox = document.getElementById('error-school');
+        const rawLines = input.value.split(/\r?\n/);
+        const cleaned = [];
+
+        rawLines.forEach(function (line) {
+          const trimmed = line.trim();
+          if (trimmed) cleaned.push(trimmed);
+        });
+
+        if (cleaned.length === 0) {
+          errBox.textContent = 'กรุณาระบุชื่อโรงเรียนอย่างน้อย 1 โรงเรียน';
+          errBox.classList.add('visible');
+          input.focus();
+          return;
+        }
+
+        let addedAny = false;
+        cleaned.forEach(function (name) {
+          const exists = state.schools.some(function (s) {
+            return s.name.toLowerCase() === name.toLowerCase();
+          });
+          if (!exists) {
+            state.schools.push({ id: nextId('sch'), name: name });
+            addedAny = true;
+          }
+        });
+
+        if (!addedAny) {
+          errBox.textContent = 'ชื่อโรงเรียนที่ระบุมีอยู่ในระบบแล้ว';
+          errBox.classList.add('visible');
+          return;
+        }
+
+        errBox.classList.remove('visible');
+        input.value = '';
+        renderAll();
+      });
+
+      // Add Sport Form
+      document.getElementById('form-add-sport').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const input = document.getElementById('input-sport-name');
+        const errBox = document.getElementById('error-sport');
+        const name = input.value.trim();
+
+        if (!name) {
+          errBox.textContent = 'กรุณาระบุชื่อประเภทกีฬาและรุ่นการแข่งขัน';
+          errBox.classList.add('visible');
+          input.focus();
+          return;
+        }
+
+        const duplicate = state.sports.some(function (sp) {
+          return sp.name.toLowerCase() === name.toLowerCase();
+        });
+        if (duplicate) {
+          errBox.textContent = 'ประเภทกีฬานี้มีอยู่ในระบบแล้ว';
+          errBox.classList.add('visible');
+          return;
+        }
+
+        errBox.classList.remove('visible');
+        const newSport = {
+          id: nextId('spt'),
+          name: name,
+          schoolIds: [],
+          seeds: {}
+        };
+        state.sports.push(newSport);
+        state.selectedSportIdForEntries = newSport.id;
+        state.selectedSportIdForDraw = newSport.id;
+        input.value = '';
+        renderAll();
+      });
+
+      // Delegated Clicks & Changes
+      document.addEventListener('click', function (e) {
+        const target = e.target;
+
+        // Navigate to step shortcut
+        const gotoStepBtn = target.closest('[data-goto-step]');
+        if (gotoStepBtn) {
+          switchStep(gotoStepBtn.getAttribute('data-goto-step'));
+          return;
+        }
+
+        // Go directly to draw for a specific sport
+        const gotoDrawBtn = target.closest('[data-goto-draw]');
+        if (gotoDrawBtn) {
+          state.selectedSportIdForDraw = gotoDrawBtn.getAttribute('data-goto-draw');
+          switchStep('draw');
+          return;
+        }
+
+        // Jump back to edit entries for a sport
+        const editEntriesBtn = target.closest('[data-edit-sport-entries]');
+        if (editEntriesBtn) {
+          state.selectedSportIdForEntries = editEntriesBtn.getAttribute('data-edit-sport-entries');
+          switchStep('sports');
+          return;
+        }
+
+        // Remove school
+        const removeSchoolBtn = target.closest('[data-remove-school]');
+        if (removeSchoolBtn) {
+          const sid = removeSchoolBtn.getAttribute('data-remove-school');
+          state.schools = state.schools.filter(function (s) { return s.id !== sid; });
+          state.sports.forEach(function (sp) {
+            if (sp.schoolIds.indexOf(sid) !== -1) {
+              sp.schoolIds = sp.schoolIds.filter(function (id) { return id !== sid; });
+              delete sp.seeds[sid];
+              delete state.draws[sp.id];
+            }
+          });
+          renderAll();
+          return;
+        }
+
+        // Select sport in Step 2
+        const selectSportBtn = target.closest('[data-select-sport]');
+        if (selectSportBtn) {
+          state.selectedSportIdForEntries = selectSportBtn.getAttribute('data-select-sport');
+          renderSportsView();
+          return;
+        }
+
+        // Remove sport in Step 2
+        const removeSportBtn = target.closest('[data-remove-sport]');
+        if (removeSportBtn) {
+          const spId = removeSportBtn.getAttribute('data-remove-sport');
+          state.sports = state.sports.filter(function (sp) { return sp.id !== spId; });
+          delete state.draws[spId];
+          delete state.drawConfigs[spId];
+          if (state.selectedSportIdForEntries === spId) {
+            state.selectedSportIdForEntries = state.sports.length ? state.sports[0].id : null;
+          }
+          if (state.selectedSportIdForDraw === spId) {
+            state.selectedSportIdForDraw = state.sports.length ? state.sports[0].id : null;
+          }
+          renderAll();
+          return;
+        }
+
+        // Select all schools for sport
+        const selectAllBtn = target.closest('[data-select-all-schools]');
+        if (selectAllBtn) {
+          const sp = getSportById(selectAllBtn.getAttribute('data-select-all-schools'));
+          if (sp) {
+            sp.schoolIds = state.schools.map(function (s) { return s.id; });
+            delete state.draws[sp.id];
+            delete state.drawConfigs[sp.id];
+            renderAll();
+          }
+          return;
+        }
+
+        // Clear all schools for sport
+        const clearAllBtn = target.closest('[data-clear-all-schools]');
+        if (clearAllBtn) {
+          const sp = getSportById(clearAllBtn.getAttribute('data-clear-all-schools'));
+          if (sp) {
+            sp.schoolIds = [];
+            sp.seeds = {};
+            delete state.draws[sp.id];
+            renderAll();
+          }
+          return;
+        }
+
+        // Select sport in Step 3
+        const drawSelectSportBtn = target.closest('[data-draw-select-sport]');
+        if (drawSelectSportBtn) {
+          state.selectedSportIdForDraw = drawSelectSportBtn.getAttribute('data-draw-select-sport');
+          renderDrawView();
+          return;
+        }
+
+        // Select tournament method in Step 3
+        const methodCard = target.closest('[data-select-method]');
+        if (methodCard) {
+          const sp = getSportById(state.selectedSportIdForDraw);
+          if (sp) {
+            const cfg = ensureDrawConfig(sp);
+            cfg.method = methodCard.getAttribute('data-select-method');
+            renderDrawView();
+          }
+          return;
+        }
+
+        // Run tournament draw
+        if (target.closest('#btn-run-draw')) {
+          const sp = getSportById(state.selectedSportIdForDraw);
+          if (!sp || sp.schoolIds.length < 2) return;
+          const cfg = ensureDrawConfig(sp);
+
+          if (cfg.method === 'knockout') {
+            state.draws[sp.id] = generateKnockoutDraw(sp, cfg.thirdPlace);
+          } else if (cfg.method === 'groups') {
+            state.draws[sp.id] = generateGroupsDraw(sp, cfg.groupCount);
+          } else {
+            state.draws[sp.id] = generateRoundRobinDraw(sp);
+          }
+          renderDrawView();
+        }
+      });
+
+      // Keyboard accessibility for radio method cards
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          const methodCard = e.target.closest('[data-select-method]');
+          if (methodCard) {
+            e.preventDefault();
+            methodCard.click();
+          }
+        }
+      });
+
+      document.addEventListener('change', function (e) {
+        const target = e.target;
+
+        // Toggle school participation in selected sport
+        if (target.hasAttribute('data-toggle-entry')) {
+          const sid = target.getAttribute('data-toggle-entry');
+          const sp = getSportById(state.selectedSportIdForEntries);
+          if (!sp) return;
+
+          if (target.checked) {
+            if (sp.schoolIds.indexOf(sid) === -1) {
+              sp.schoolIds.push(sid);
+            }
+          } else {
+            sp.schoolIds = sp.schoolIds.filter(function (id) { return id !== sid; });
+            delete sp.seeds[sid];
+          }
+          delete state.draws[sp.id];
+          delete state.drawConfigs[sp.id];
+          renderAll();
+          return;
+        }
+
+        // Set seed number for participating school
+        if (target.hasAttribute('data-seed-school')) {
+          const sid = target.getAttribute('data-seed-school');
+          const seedVal = Number(target.value);
+          const sp = getSportById(state.selectedSportIdForEntries);
+          if (!sp) return;
+
+          if (seedVal === 0) {
+            delete sp.seeds[sid];
+          } else {
+            // Ensure unique seed rank within this sport
+            Object.keys(sp.seeds).forEach(function (otherId) {
+              if (sp.seeds[otherId] === seedVal) {
+                delete sp.seeds[otherId];
+              }
+            });
+            sp.seeds[sid] = seedVal;
+          }
+          delete state.draws[sp.id];
+          renderSportsView();
+          return;
+        }
+
+        // Toggle 3rd place match option
+        if (target.id === 'chk-third-place') {
+          const sp = getSportById(state.selectedSportIdForDraw);
+          if (sp) {
+            const cfg = ensureDrawConfig(sp);
+            cfg.thirdPlace = target.checked;
+          }
+          return;
+        }
+
+        // Change group count option
+        if (target.id === 'sel-group-count') {
+          const sp = getSportById(state.selectedSportIdForDraw);
+          if (sp) {
+            const cfg = ensureDrawConfig(sp);
+            cfg.groupCount = Number(target.value);
+          }
+        }
+      });
+
+      // Initial render
+      renderAll();
+    })();
+  </script>
+</body>
+</html>
