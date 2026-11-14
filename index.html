@@ -1907,7 +1907,7 @@
         </div>
         <div>
           <h1 class="app-title">ระบบแบ่งสายการแข่งขันกีฬานักเรียน</h1>
-          <p class="app-subtitle">จัดการโรงเรียนที่ลงแข่งขันไม่เท่ากันในแต่ละประเภทกีฬา พร้อมจัดสายตามหลักมาตรฐาน</p>
+          <p class="app-subtitle">การแข่งขันกีฬานักเรียน กลุ่มโรงเรียนเมืองใหม่ ประจำปีการศึกษา 2569</p>
         </div>
       </div>
 
@@ -1951,8 +1951,8 @@
           </svg>
         </div>
         <div>
-          <h1 class="app-title">ระบบแบ่งสายการแข่งขันกีฬานักเรียน</h1>
-          <p class="app-subtitle">การแข่งขันกีฬานักเรียน กลุ่มโรงเรียนเมืองใหม่ ประจำปีการศึกษา 2569</p>
+          <h1 class="app-title">ระบบจัดการแข่งขันและบันทึกผล (สำหรับกรรมการ)</h1>
+          <p class="app-subtitle">บันทึกสกอร์อัปเดตสายการแข่งขัน คำนวณตารางคะแนน และจัดอันดับอัตโนมัติ</p>
         </div>
       </div>
 
@@ -2284,7 +2284,9 @@
             state.drawConfigs[spId] = {
               method: r.draw_config.method,
               groupCount: Number(r.draw_config.groupCount) || 2,
-              thirdPlace: r.draw_config.thirdPlace !== false
+              thirdPlace: r.draw_config.thirdPlace !== false,
+              rrKnockout: Boolean(r.draw_config.rrKnockout),
+              rrQualifiers: Number(r.draw_config.rrQualifiers) === 2 ? 2 : 4
             };
           }
           if (r.draw_result && typeof r.draw_result === 'object' && r.draw_result.method) {
@@ -2414,22 +2416,26 @@
         });
       }
 
-      function getMethodThaiLabel(method) {
+      function getMethodThaiLabel(method, drawObj) {
         if (method === 'knockout') return 'แพ้คัดออก (Single Elimination)';
         if (method === 'groups') return 'แบ่งสายรอบแรก + รอบน็อกเอาต์ (Group Stage & Knockout)';
-        if (method === 'roundrobin') return 'พบกันหมด (Round Robin)';
+        if (method === 'roundrobin') {
+          return (drawObj && drawObj.knockoutStage)
+            ? 'พบกันหมด + รอบน็อกเอาต์ (Round Robin & Knockout)'
+            : 'พบกันหมด (Round Robin)';
+        }
         return '';
       }
 
       // Recommended standard format based on participating team count
       function getDefaultConfigForSport(teamCount) {
         if (teamCount >= 2 && teamCount <= 4) {
-          return { method: 'roundrobin', groupCount: 2, thirdPlace: true };
+          return { method: 'roundrobin', groupCount: 2, thirdPlace: true, rrKnockout: false, rrQualifiers: teamCount >= 4 ? 4 : 2 };
         }
         if (teamCount >= 6 && teamCount <= 8) {
-          return { method: 'groups', groupCount: 2, thirdPlace: true };
+          return { method: 'groups', groupCount: 2, thirdPlace: true, rrKnockout: false, rrQualifiers: 4 };
         }
-        return { method: 'knockout', groupCount: 2, thirdPlace: true };
+        return { method: 'knockout', groupCount: 2, thirdPlace: true, rrKnockout: false, rrQualifiers: 4 };
       }
 
       function ensureDrawConfig(sport) {
@@ -2437,12 +2443,25 @@
           state.drawConfigs[sport.id] = getDefaultConfigForSport(sport.schoolIds.length);
         }
         const cfg = state.drawConfigs[sport.id];
-        const maxGroups = Math.max(2, Math.floor(sport.schoolIds.length / 2));
+        const n = sport.schoolIds.length;
+        const maxGroups = Math.max(2, Math.floor(n / 2));
         if (cfg.groupCount > maxGroups) {
           cfg.groupCount = maxGroups;
         }
         if (cfg.groupCount < 2) {
           cfg.groupCount = 2;
+        }
+        if (cfg.rrKnockout === undefined) {
+          cfg.rrKnockout = false;
+        }
+        if (n < 3) {
+          cfg.rrKnockout = false;
+        }
+        if (!cfg.rrQualifiers) {
+          cfg.rrQualifiers = n >= 4 ? 4 : 2;
+        }
+        if (n < 4 || (cfg.rrQualifiers !== 2 && cfg.rrQualifiers !== 4)) {
+          cfg.rrQualifiers = 2;
         }
         return cfg;
       }
@@ -2727,8 +2746,178 @@
         return rounds;
       }
 
-      // 2. Standard Round Robin (พบกันหมด)
-      function generateRoundRobinDraw(sport) {
+      function buildRoundRobinKnockoutStage(teamCount, firstMatchNo, qualifiersCount, includeThirdPlace) {
+        const Q = (teamCount >= 4 && qualifiersCount === 4) ? 4 : 2;
+        function makeRrQualSpec(rank) {
+          return {
+            rank: rank,
+            shortCode: 'อันดับ ' + rank,
+            label: 'อันดับ ' + rank + ' รอบพบกันหมด'
+          };
+        }
+
+        if (Q === 2) {
+          const hasThird = Boolean(includeThirdPlace && teamCount >= 4);
+          const thirdNo = hasThird ? firstMatchNo : null;
+          const finalNo = hasThird ? (firstMatchNo + 1) : firstMatchNo;
+
+          const finalMatch = {
+            roundIndex: 0,
+            slotIndex: 0,
+            matchNo: finalNo,
+            isBye: false,
+            qualA: makeRrQualSpec(1),
+            qualB: makeRrQualSpec(2),
+            teamA: null,
+            teamB: null,
+            labelA: 'อันดับ 1 รอบพบกันหมด',
+            labelB: 'อันดับ 2 รอบพบกันหมด',
+            advancingTeam: null
+          };
+
+          let thirdPlaceMatch = null;
+          const schedule = [];
+
+          if (hasThird) {
+            thirdPlaceMatch = {
+              matchNo: thirdNo,
+              roundTitle: 'รอบชิงอันดับที่ 3',
+              isBye: false,
+              qualA: makeRrQualSpec(3),
+              qualB: makeRrQualSpec(4),
+              teamA: null,
+              teamB: null,
+              labelA: 'อันดับ 3 รอบพบกันหมด',
+              labelB: 'อันดับ 4 รอบพบกันหมด'
+            };
+            schedule.push(thirdPlaceMatch);
+          }
+
+          schedule.push({
+            matchNo: finalNo,
+            roundTitle: 'รอบชิงชนะเลิศ',
+            teamA: null,
+            teamB: null,
+            labelA: finalMatch.labelA,
+            labelB: finalMatch.labelB
+          });
+
+          return {
+            qualifiersCount: 2,
+            includeThirdPlace: hasThird,
+            rounds: [{ title: 'รอบชิงชนะเลิศ', matches: [finalMatch] }],
+            thirdPlaceMatch: thirdPlaceMatch,
+            schedule: schedule
+          };
+        }
+
+        // Q === 4: Semifinals (1 vs 4, 2 vs 3) -> [3rd Place] -> Final
+        const semi1No = firstMatchNo;
+        const semi2No = firstMatchNo + 1;
+        const hasThird = Boolean(includeThirdPlace);
+        const thirdNo = hasThird ? (firstMatchNo + 2) : null;
+        const finalNo = hasThird ? (firstMatchNo + 3) : (firstMatchNo + 2);
+
+        const semi1 = {
+          roundIndex: 0,
+          slotIndex: 0,
+          matchNo: semi1No,
+          isBye: false,
+          qualA: makeRrQualSpec(1),
+          qualB: makeRrQualSpec(4),
+          teamA: null,
+          teamB: null,
+          labelA: 'อันดับ 1 รอบพบกันหมด',
+          labelB: 'อันดับ 4 รอบพบกันหมด',
+          advancingTeam: null
+        };
+
+        const semi2 = {
+          roundIndex: 0,
+          slotIndex: 1,
+          matchNo: semi2No,
+          isBye: false,
+          qualA: makeRrQualSpec(2),
+          qualB: makeRrQualSpec(3),
+          teamA: null,
+          teamB: null,
+          labelA: 'อันดับ 2 รอบพบกันหมด',
+          labelB: 'อันดับ 3 รอบพบกันหมด',
+          advancingTeam: null
+        };
+
+        const finalMatch = {
+          roundIndex: 1,
+          slotIndex: 0,
+          matchNo: finalNo,
+          isBye: false,
+          qualA: null,
+          qualB: null,
+          teamA: null,
+          teamB: null,
+          labelA: 'ผู้ชนะ คู่ที่ ' + semi1No,
+          labelB: 'ผู้ชนะ คู่ที่ ' + semi2No,
+          advancingTeam: null
+        };
+
+        const schedule = [
+          {
+            matchNo: semi1No,
+            roundTitle: 'รอบรองชนะเลิศ',
+            teamA: null,
+            teamB: null,
+            labelA: semi1.labelA,
+            labelB: semi1.labelB
+          },
+          {
+            matchNo: semi2No,
+            roundTitle: 'รอบรองชนะเลิศ',
+            teamA: null,
+            teamB: null,
+            labelA: semi2.labelA,
+            labelB: semi2.labelB
+          }
+        ];
+
+        let thirdPlaceMatch = null;
+        if (hasThird) {
+          thirdPlaceMatch = {
+            matchNo: thirdNo,
+            roundTitle: 'รอบชิงอันดับที่ 3',
+            isBye: false,
+            qualA: null,
+            qualB: null,
+            teamA: null,
+            teamB: null,
+            labelA: 'ผู้แพ้ คู่ที่ ' + semi1No,
+            labelB: 'ผู้แพ้ คู่ที่ ' + semi2No
+          };
+          schedule.push(thirdPlaceMatch);
+        }
+
+        schedule.push({
+          matchNo: finalNo,
+          roundTitle: 'รอบชิงชนะเลิศ',
+          teamA: null,
+          teamB: null,
+          labelA: finalMatch.labelA,
+          labelB: finalMatch.labelB
+        });
+
+        return {
+          qualifiersCount: 4,
+          includeThirdPlace: hasThird,
+          rounds: [
+            { title: 'รอบรองชนะเลิศ', matches: [semi1, semi2] },
+            { title: 'รอบชิงชนะเลิศ', matches: [finalMatch] }
+          ],
+          thirdPlaceMatch: thirdPlaceMatch,
+          schedule: schedule
+        };
+      }
+
+      // 2. Standard Round Robin (พบกันหมด และตัวเลือกรอบน็อกเอาต์ต่อท้าย)
+      function generateRoundRobinDraw(sport, cfg) {
         const orderedTeams = buildSeededAndDrawnList(sport);
         const N = orderedTeams.length;
         const rounds = generateCircleFixtures(orderedTeams);
@@ -2744,12 +2933,26 @@
           ? ' เนื่องจากจำนวนทีมเป็นเลขคี่ ในแต่ละรอบจะมีทีมพักการแข่งขัน (ได้บายประจำรอบ) รอบละ 1 โรงเรียนหมุนเวียนกันครบทุกทีม'
           : ' จำนวนทีมเป็นเลขคู่ ทุกโรงเรียนจะลงแข่งขันพร้อมกันครบทุกคู่ในแต่ละรอบ';
 
+        let knockoutStage = null;
+        let koDesc = '';
+        if (cfg && cfg.rrKnockout && N >= 3) {
+          const qCount = (N >= 4 && Number(cfg.rrQualifiers) === 4) ? 4 : 2;
+          const withThird = cfg.thirdPlace !== false;
+          knockoutStage = buildRoundRobinKnockoutStage(N, matchSeq, qCount, withThird);
+          if (qCount === 4) {
+            koDesc = ' และเมื่อจบรอบพบกันหมด จะคัดทีมอันดับ 1–4 เข้าสู่รอบรองชนะเลิศตามมาตรฐาน (อันดับ 1 พบ อันดับ 4, อันดับ 2 พบ อันดับ 3)' + (withThird ? ' พร้อมคู่ชิงอันดับที่ 3' : '') + ' และรอบชิงชนะเลิศ';
+          } else {
+            koDesc = ' และเมื่อจบรอบพบกันหมด จะคัดทีมอันดับ 1 พบ อันดับ 2 เข้าแข่งขันในรอบชิงชนะเลิศ' + (withThird && N >= 4 ? ' (พร้อมคู่ชิงอันดับที่ 3 ระหว่างอันดับ 3 พบ อันดับ 4)' : '');
+          }
+        }
+
         return {
           method: 'roundrobin',
           confirmed: false,
-          explanation: 'จัดโปรแกรมแบบพบกันหมดด้วยวิธีหมุนวนมาตรฐาน (Circle Method) สำหรับ ' + N + ' โรงเรียน แบ่งการแข่งขันออกเป็น ' + rounds.length + ' รอบ' + oddNote,
+          explanation: 'จัดโปรแกรมแบบพบกันหมดด้วยวิธีหมุนวนมาตรฐาน (Circle Method) สำหรับ ' + N + ' โรงเรียน แบ่งการแข่งขันออกเป็น ' + rounds.length + ' รอบ' + oddNote + koDesc,
           teams: orderedTeams,
           rounds: rounds,
+          knockoutStage: knockoutStage,
           results: {}
         };
       }
@@ -3532,6 +3735,181 @@
         return rows;
       }
 
+      function computeRoundRobinLiveState(draw) {
+        if (!draw.results) draw.results = {};
+        const teams = extractRoundRobinTeams(draw);
+        const standingsRows = computeStandingsRows(teams, draw.rounds, draw.results);
+
+        let totalMatches = 0;
+        let playedMatches = 0;
+        (draw.rounds || []).forEach(function (rd) {
+          (rd.pairings || []).forEach(function (p) {
+            totalMatches += 1;
+            if (evaluateMatchScore(p.teamA, p.teamB, draw.results[p.matchNo], false).hasScore) {
+              playedMatches += 1;
+            }
+          });
+        });
+        const isLeagueComplete = (totalMatches > 0 && playedMatches === totalMatches);
+
+        if (!draw.knockoutStage || !Array.isArray(draw.knockoutStage.rounds)) {
+          return {
+            standingsRows: standingsRows,
+            isLeagueComplete: isLeagueComplete,
+            liveKo: null
+          };
+        }
+
+        const ko = draw.knockoutStage;
+        function resolveRankTeam(spec) {
+          if (!spec || !isLeagueComplete) return null;
+          const stRow = standingsRows[spec.rank - 1];
+          if (!stRow || !stRow.team) return null;
+          return Object.assign({}, stRow.team, { qualTag: spec.shortCode });
+        }
+
+        const liveRounds = [];
+        const matchLookup = {};
+
+        // Knockout Round 0 (Final if Q=2, Semifinals if Q=4)
+        const r0Matches = ko.rounds[0].matches.map(function (origM) {
+          const lm = Object.assign({}, origM);
+          lm.teamA = resolveRankTeam(lm.qualA);
+          lm.teamB = resolveRankTeam(lm.qualB);
+          lm.labelA = lm.teamA ? lm.teamA.name : lm.qualA.label;
+          lm.labelB = lm.teamB ? lm.teamB.name : lm.qualB.label;
+          validateAndEvaluateKnockoutSlot(lm, draw.results);
+          matchLookup[lm.matchNo] = lm;
+          return lm;
+        });
+        liveRounds.push({ title: ko.rounds[0].title, matches: r0Matches });
+
+        // Knockout Round 1 (Final when Q=4)
+        for (let r = 1; r < ko.rounds.length; r++) {
+          const prevMatches = liveRounds[r - 1].matches;
+          const currOrig = ko.rounds[r].matches;
+          const currLive = [];
+
+          for (let k = 0; k < currOrig.length; k++) {
+            const origM = currOrig[k];
+            const feederA = prevMatches[k * 2];
+            const feederB = prevMatches[k * 2 + 1];
+            const knownA = feederA.advancingTeam || null;
+            const knownB = feederB.advancingTeam || null;
+
+            const lm = {
+              roundIndex: r,
+              slotIndex: k,
+              matchNo: origM.matchNo,
+              isBye: false,
+              teamA: knownA,
+              teamB: knownB,
+              labelA: knownA ? knownA.name : ('ผู้ชนะ คู่ที่ ' + feederA.matchNo),
+              labelB: knownB ? knownB.name : ('ผู้ชนะ คู่ที่ ' + feederB.matchNo),
+              advancingTeam: null,
+              losingTeam: null,
+              winnerSide: null,
+              isTied: false
+            };
+
+            validateAndEvaluateKnockoutSlot(lm, draw.results);
+            matchLookup[lm.matchNo] = lm;
+            currLive.push(lm);
+          }
+          liveRounds.push({ title: ko.rounds[r].title, matches: currLive });
+        }
+
+        // Optional 3rd Place Match
+        let liveThirdPlace = null;
+        if (ko.thirdPlaceMatch) {
+          let tpA = null;
+          let tpB = null;
+          let lblA = ko.thirdPlaceMatch.labelA;
+          let lblB = ko.thirdPlaceMatch.labelB;
+
+          if (ko.qualifiersCount === 2) {
+            tpA = resolveRankTeam(ko.thirdPlaceMatch.qualA);
+            tpB = resolveRankTeam(ko.thirdPlaceMatch.qualB);
+            if (tpA) lblA = tpA.name;
+            if (tpB) lblB = tpB.name;
+          } else if (liveRounds.length >= 2) {
+            const semiA = liveRounds[0].matches[0];
+            const semiB = liveRounds[0].matches[1];
+            tpA = semiA.losingTeam || null;
+            tpB = semiB.losingTeam || null;
+            lblA = tpA ? tpA.name : ('ผู้แพ้ คู่ที่ ' + semiA.matchNo);
+            lblB = tpB ? tpB.name : ('ผู้แพ้ คู่ที่ ' + semiB.matchNo);
+          }
+
+          liveThirdPlace = {
+            matchNo: ko.thirdPlaceMatch.matchNo,
+            roundTitle: 'รอบชิงอันดับที่ 3',
+            isBye: false,
+            teamA: tpA,
+            teamB: tpB,
+            labelA: lblA,
+            labelB: lblB,
+            advancingTeam: null,
+            losingTeam: null,
+            winnerSide: null,
+            isTied: false
+          };
+          validateAndEvaluateKnockoutSlot(liveThirdPlace, draw.results);
+          matchLookup[liveThirdPlace.matchNo] = liveThirdPlace;
+        }
+
+        const liveSchedule = ko.schedule.map(function (schedItem) {
+          const src = matchLookup[schedItem.matchNo];
+          if (!src) return Object.assign({}, schedItem);
+          return {
+            matchNo: schedItem.matchNo,
+            roundTitle: schedItem.roundTitle,
+            teamA: src.teamA,
+            teamB: src.teamB,
+            labelA: src.labelA,
+            labelB: src.labelB,
+            winnerSide: src.winnerSide,
+            isTied: src.isTied
+          };
+        });
+
+        const finalMatch = liveRounds[liveRounds.length - 1].matches[0];
+        const podium = [];
+        if (finalMatch && finalMatch.advancingTeam) {
+          podium.push({ rank: 1, title: 'ชนะเลิศ (อันดับ 1)', team: finalMatch.advancingTeam });
+        }
+        if (finalMatch && finalMatch.losingTeam) {
+          podium.push({ rank: 2, title: 'รองชนะเลิศอันดับ 1 (อันดับ 2)', team: finalMatch.losingTeam });
+        }
+        if (liveThirdPlace) {
+          if (liveThirdPlace.advancingTeam) {
+            podium.push({ rank: 3, title: 'อันดับที่ 3', team: liveThirdPlace.advancingTeam });
+          }
+          if (liveThirdPlace.losingTeam) {
+            podium.push({ rank: 4, title: 'อันดับที่ 4', team: liveThirdPlace.losingTeam });
+          }
+        } else if (ko.qualifiersCount === 4 && liveRounds.length >= 2) {
+          liveRounds[0].matches.forEach(function (sm) {
+            if (sm.losingTeam) {
+              podium.push({ rank: 3, title: 'อันดับที่ 3 ร่วม', team: sm.losingTeam });
+            }
+          });
+        } else if (ko.qualifiersCount === 2 && isLeagueComplete && finalMatch && finalMatch.advancingTeam && standingsRows[2]) {
+          podium.push({ rank: 3, title: 'อันดับที่ 3', team: standingsRows[2].team });
+        }
+
+        return {
+          standingsRows: standingsRows,
+          isLeagueComplete: isLeagueComplete,
+          liveKo: {
+            liveRounds: liveRounds,
+            liveThirdPlace: liveThirdPlace,
+            liveSchedule: liveSchedule,
+            podium: podium
+          }
+        };
+      }
+
       /* =====================================================================
          UI RENDERING FUNCTIONS
          ===================================================================== */
@@ -3953,11 +4331,18 @@
       }
 
       function renderRoundRobinResult(draw) {
+        const hasKo = Boolean(draw.knockoutStage && Array.isArray(draw.knockoutStage.rounds));
+
         let html =
           '<div class="standard-note">' +
-            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (พบกันหมด Round Robin)</div>' +
+            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (' + (hasKo ? 'พบกันหมด + รอบน็อกเอาต์ Round Robin & Knockout' : 'พบกันหมด Round Robin') + ')</div>' +
             '<p class="standard-note-body">' + escapeHtml(draw.explanation) + '</p>' +
           '</div>';
+
+        if (hasKo) {
+          const qCount = draw.knockoutStage.qualifiersCount || 2;
+          html += '<h3 class="section-subtitle">ระยะที่ 1: รอบพบกันหมด (คัดอันดับ 1–' + qCount + ' เข้าสู่รอบน็อกเอาต์)</h3>';
+        }
 
         html += '<div class="groups-grid">';
         draw.rounds.forEach(function (rd) {
@@ -3992,6 +4377,23 @@
           html += '</tbody></table></div></div></div>';
         });
         html += '</div>';
+
+        if (hasKo) {
+          const koHeading = (draw.knockoutStage.qualifiersCount === 4)
+            ? 'ระยะที่ 2: ผังสายรอบน็อกเอาต์ (รอบรองชนะเลิศ – รอบชิงชนะเลิศ)'
+            : 'ระยะที่ 2: ผังสายรอบชิงชนะเลิศหลังจบรอบพบกันหมด';
+          html +=
+            '<div class="knockout-stage-section">' +
+              renderStaticBracketSectionHtml(
+                draw.knockoutStage.rounds,
+                draw.knockoutStage.thirdPlaceMatch,
+                draw.knockoutStage.schedule,
+                koHeading,
+                'ลำดับคู่การแข่งขันรอบน็อกเอาต์'
+              ) +
+            '</div>';
+        }
+
         return html;
       }
 
@@ -4101,7 +4503,7 @@
         } else if (cfg.method === 'groups') {
           pendingDraw = generateGroupsDraw(sport, cfg.groupCount, cfg.thirdPlace);
         } else {
-          pendingDraw = generateRoundRobinDraw(sport);
+          pendingDraw = generateRoundRobinDraw(sport, cfg);
         }
 
         const schoolNames = sport.schoolIds
@@ -4359,6 +4761,34 @@
                   '<span>เพิ่มคู่แข่งขันชิงอันดับที่ 3 ในรอบน็อกเอาต์</span>' +
                 '</label>' +
               '</div>';
+          } else if (cfg.method === 'roundrobin' && N >= 3) {
+            let rrSubOptionsHtml = '';
+            if (cfg.rrKnockout) {
+              if (N >= 4) {
+                rrSubOptionsHtml =
+                  '<label for="sel-rr-qualifiers" style="font-weight:600; font-size:0.92rem;">รูปแบบรอบน็อกเอาต์:</label>' +
+                  '<select id="sel-rr-qualifiers" class="seed-select" style="padding:7px 12px; font-size:0.92rem;"' + (isConfirmed ? ' disabled' : '') + '>' +
+                    '<option value="2"' + (cfg.rrQualifiers === 2 ? ' selected' : '') + '>คัด 2 ทีมชิงชนะเลิศ (อันดับ 1 พบ อันดับ 2)</option>' +
+                    '<option value="4"' + (cfg.rrQualifiers === 4 ? ' selected' : '') + '>คัด 4 ทีมเข้ารอบรองชนะเลิศ–ชิงชนะเลิศ (1 พบ 4, 2 พบ 3)</option>' +
+                  '</select>' +
+                  '<label class="inline-check-label">' +
+                    '<input type="checkbox" class="entry-checkbox" id="chk-third-place"' + (cfg.thirdPlace ? ' checked' : '') + (isConfirmed ? ' disabled' : '') + '>' +
+                    '<span>เพิ่มคู่แข่งขันชิงอันดับที่ 3</span>' +
+                  '</label>';
+              } else {
+                rrSubOptionsHtml =
+                  '<span style="font-size:0.88rem; color:var(--muted);">(คัดอันดับ 1 พบ อันดับ 2 เข้าแข่งขันรอบชิงชนะเลิศ)</span>';
+              }
+            }
+
+            methodOptionsHtml =
+              '<div class="method-options-bar">' +
+                '<label class="inline-check-label">' +
+                  '<input type="checkbox" class="entry-checkbox" id="chk-rr-knockout"' + (cfg.rrKnockout ? ' checked' : '') + (isConfirmed ? ' disabled' : '') + '>' +
+                  '<span>เพิ่มรอบน็อกเอาต์หลังจบรอบพบกันหมด</span>' +
+                '</label>' +
+                rrSubOptionsHtml +
+              '</div>';
           }
 
           const isCurrentlyDrawing = Boolean(activeDrawJob && activeDrawJob.sportId === currentSport.id);
@@ -4507,7 +4937,7 @@
               '<div class="summary-sport-header">' +
                 '<div>' +
                   '<h3 class="summary-sport-title">' + (idx + 1) + '. ' + escapeHtml(sp.name) + '</h3>' +
-                  '<p class="summary-sport-meta">รูปแบบการแข่งขัน: ' + escapeHtml(getMethodThaiLabel(draw.method)) + '</p>' +
+                  '<p class="summary-sport-meta">รูปแบบการแข่งขัน: ' + escapeHtml(getMethodThaiLabel(draw.method, draw)) + '</p>' +
                 '</div>' +
                 '<span class="status-chip ' + (isConf ? 'confirmed' : 'draft') + '">' +
                   (isConf ? 'ยืนยันและล็อกสายแล้ว' : 'ยังไม่ยืนยันการล็อกสาย') +
@@ -4923,13 +5353,30 @@
       }
 
       function renderRoundRobinCompetitionMarkup(draw) {
-        if (!draw.results) draw.results = {};
-        const teams = extractRoundRobinTeams(draw);
-        const standingsRows = computeStandingsRows(teams, draw.rounds, draw.results);
+        const rrState = computeRoundRobinLiveState(draw);
+        const standingsRows = rrState.standingsRows;
+        const hasKo = Boolean(rrState.liveKo);
+        let html = '';
 
-        let html = renderStandingsTableHtml('ตารางสรุปคะแนนและจัดอันดับ (พบกันหมด)', standingsRows);
+        if (hasKo && rrState.liveKo.podium.length > 0) {
+          html += renderPodiumSummaryHtml(rrState.liveKo.podium);
+        }
 
-        html += '<h3 class="section-subtitle">โปรแกรมและบันทึกผลการแข่งขันทุกรอบ</h3>';
+        if (hasKo) {
+          const qCount = (draw.knockoutStage && draw.knockoutStage.qualifiersCount) || 2;
+          html +=
+            '<div style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; margin-bottom:var(--space-3);">' +
+              '<h3 class="section-subtitle" style="margin:0;">ระยะที่ 1: รอบพบกันหมด (เมื่อกรอกผลครบทุกนัด ระบบจะส่งทีมอันดับ 1–' + qCount + ' เข้ารอบน็อกเอาต์อัตโนมัติ)</h3>' +
+              (rrState.isLeagueComplete ? '<span class="lock-tag-inline">แข่งพบกันหมดครบแล้ว — ส่งทีมเข้ารอบน็อกเอาต์แล้ว</span>' : '') +
+            '</div>';
+        }
+
+        html += renderStandingsTableHtml(
+          hasKo ? 'ตารางสรุปคะแนนรอบพบกันหมด' : 'ตารางสรุปคะแนนและจัดอันดับ (พบกันหมด)',
+          standingsRows
+        );
+
+        html += '<h3 class="section-subtitle">โปรแกรมและบันทึกผลการแข่งขันรอบพบกันหมด</h3>';
         html += '<div class="groups-grid">';
         draw.rounds.forEach(function (rd) {
           html +=
@@ -4975,6 +5422,23 @@
           html += '</tbody></table></div></div></div>';
         });
         html += '</div>';
+
+        if (hasKo) {
+          const koHeading = (draw.knockoutStage && draw.knockoutStage.qualifiersCount === 4)
+            ? 'ระยะที่ 2: รอบน็อกเอาต์ (รอบรองชนะเลิศ – รอบชิงชนะเลิศ) — บันทึกสกอร์ในผังได้ทันที'
+            : 'ระยะที่ 2: รอบชิงชนะเลิศหลังจบรอบพบกันหมด — บันทึกสกอร์ในผังได้ทันที';
+
+          html +=
+            '<div class="knockout-stage-section">' +
+              renderLiveKnockoutSectionHtml(
+                rrState.liveKo,
+                draw.results,
+                koHeading,
+                'ตารางลำดับคู่แข่งขันรอบน็อกเอาต์ (ข้อมูลซิงก์กับแผนผังอัตโนมัติ)'
+              ) +
+            '</div>';
+        }
+
         return html;
       }
 
@@ -5075,7 +5539,7 @@
               '<div class="card-header">' +
                 '<div>' +
                   '<h2 id="heading-matches" class="card-title">' + escapeHtml(currentSport.name) + '</h2>' +
-                  '<p class="card-desc">รูปแบบ: ' + escapeHtml(getMethodThaiLabel(currentDraw.method)) + ' — บันทึกสกอร์ คำนวณตารางคะแนน และจัดอันดับอัตโนมัติ</p>' +
+                  '<p class="card-desc">รูปแบบ: ' + escapeHtml(getMethodThaiLabel(currentDraw.method, currentDraw)) + ' — บันทึกสกอร์ คำนวณตารางคะแนน และจัดอันดับอัตโนมัติ</p>' +
                 '</div>' +
                 '<span class="status-chip ' + (isConf ? 'confirmed' : 'draft') + '">' +
                   (isConf ? 'ยืนยันสายแล้ว' : 'ยังไม่ล็อกสายการแข่งขัน') +
@@ -5393,12 +5857,12 @@
           return;
         }
 
-        // Select tiebreak winner when scores are tied in Knockout or Post-Group Knockout
+        // Select tiebreak winner when scores are tied in Knockout, Post-Group, or Post-Round-Robin Knockout
         const tieBtn = target.closest('[data-tiebreak-match]');
         if (tieBtn) {
           const sp = getSportById(state.selectedSportIdForMatches);
           const draw = sp ? state.draws[sp.id] : null;
-          if (draw && (draw.method === 'knockout' || draw.method === 'groups')) {
+          if (draw && (draw.method === 'knockout' || draw.method === 'groups' || draw.method === 'roundrobin')) {
             const mNo = Number(tieBtn.getAttribute('data-tiebreak-match'));
             const side = tieBtn.getAttribute('data-tiebreak-side');
             if (!draw.results) draw.results = {};
@@ -5543,6 +6007,29 @@
           if (sp && !isSportDrawConfirmed(sp.id)) {
             const cfg = ensureDrawConfig(sp);
             cfg.groupCount = Number(target.value);
+            scheduleSupabaseSync(false);
+          }
+          return;
+        }
+
+        // Toggle Round Robin post-league knockout stage option
+        if (target.id === 'chk-rr-knockout') {
+          const sp = getSportById(state.selectedSportIdForDraw);
+          if (sp && !isSportDrawConfirmed(sp.id)) {
+            const cfg = ensureDrawConfig(sp);
+            cfg.rrKnockout = target.checked;
+            renderDrawView();
+            scheduleSupabaseSync(false);
+          }
+          return;
+        }
+
+        // Change Round Robin knockout qualifiers count (2 vs 4 teams)
+        if (target.id === 'sel-rr-qualifiers') {
+          const sp = getSportById(state.selectedSportIdForDraw);
+          if (sp && !isSportDrawConfirmed(sp.id)) {
+            const cfg = ensureDrawConfig(sp);
+            cfg.rrQualifiers = Number(target.value) === 2 ? 2 : 4;
             scheduleSupabaseSync(false);
           }
           return;
