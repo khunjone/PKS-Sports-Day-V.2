@@ -1847,6 +1847,48 @@
       background: linear-gradient(135deg, #059669 0%, #065f46 100%);
       box-shadow: 0 2px 6px rgba(5, 150, 105, 0.28);
     }
+
+    /* Post-Group Knockout Stage Section & Qualifier Tags */
+    .knockout-stage-section {
+      margin-top: var(--space-6);
+      padding-top: var(--space-6);
+      border-top: 2px dashed var(--border-strong);
+    }
+
+    .knockout-stage-banner {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+      margin-bottom: var(--space-4);
+    }
+
+    .knockout-stage-heading {
+      font-family: var(--font-heading);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--brand-hover);
+      margin: 0;
+    }
+
+    .knockout-stage-sub {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin: 2px 0 0;
+    }
+
+    .qual-tag {
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--brand-soft);
+      color: var(--brand-hover);
+      border: 1px solid var(--brand-border);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body>
@@ -1865,7 +1907,7 @@
         </div>
         <div>
           <h1 class="app-title">ระบบแบ่งสายการแข่งขันกีฬานักเรียน</h1>
-          <p class="app-subtitle">การแข่งขันกีฬานักเรียน กลุ่มโรงเรียนเมืองใหม่ ประจำปีการศึกษา 2569</p>
+          <p class="app-subtitle">จัดการโรงเรียนที่ลงแข่งขันไม่เท่ากันในแต่ละประเภทกีฬา พร้อมจัดสายตามหลักมาตรฐาน</p>
         </div>
       </div>
 
@@ -1909,8 +1951,8 @@
           </svg>
         </div>
         <div>
-          <h1 class="app-title">ระบบจัดการแข่งขันและบันทึกผล (สำหรับกรรมการ)</h1>
-          <p class="app-subtitle">บันทึกสกอร์อัปเดตสายการแข่งขัน คำนวณตารางคะแนน และจัดอันดับอัตโนมัติ</p>
+          <h1 class="app-title">ระบบแบ่งสายการแข่งขันกีฬานักเรียน</h1>
+          <p class="app-subtitle">การแข่งขันกีฬานักเรียน กลุ่มโรงเรียนเมืองใหม่ ประจำปีการศึกษา 2569</p>
         </div>
       </div>
 
@@ -2374,7 +2416,7 @@
 
       function getMethodThaiLabel(method) {
         if (method === 'knockout') return 'แพ้คัดออก (Single Elimination)';
-        if (method === 'groups') return 'แบ่งสายรอบแรก (Group Stage)';
+        if (method === 'groups') return 'แบ่งสายรอบแรก + รอบน็อกเอาต์ (Group Stage & Knockout)';
         if (method === 'roundrobin') return 'พบกันหมด (Round Robin)';
         return '';
       }
@@ -2712,11 +2754,244 @@
         };
       }
 
-      // 3. Standard Group Stage / Pool Play (แบ่งสายพบกันหมดรอบแรก แบบงูเลื้อย Snake Distribution)
-      function generateGroupsDraw(sport, groupCount) {
+      function getGroupKnockoutRoundTitle(teamsInRound) {
+        if (teamsInRound === 2) return 'รอบชิงชนะเลิศ';
+        if (teamsInRound === 4) return 'รอบรองชนะเลิศ';
+        if (teamsInRound === 8) return 'รอบก่อนรองชนะเลิศ (8 ทีม)';
+        return 'รอบน็อกเอาต์ ' + teamsInRound + ' ทีม';
+      }
+
+      // Builds standard Cross-Over Knockout Stage (Quarterfinals / Semifinals / 3rd Place / Final)
+      // from top 2 qualifiers of each group, guaranteeing same-group teams are in opposite halves.
+      function buildGroupKnockoutStage(groups, firstMatchNo, includeThirdPlace) {
+        const G = groups.length;
+        function makeQualSpec(gIdx, rank) {
+          const letter = String.fromCharCode(65 + gIdx);
+          return {
+            groupIndex: gIdx,
+            rank: rank,
+            shortCode: rank + letter,
+            label: 'อันดับ ' + rank + ' สาย ' + letter
+          };
+        }
+
+        const Q = G * 2;
+        const powerExp = Math.ceil(Math.log2(Q));
+        const P = Math.pow(2, powerExp);
+        const totalRounds = powerExp;
+        const slotSpecs = [];
+
+        if (Q === P) {
+          // Power-of-2 group count (2, 4, 8...): classic cross-over (1A-2B, 1C-2D in top; 1B-2A, 1D-2C in bottom)
+          for (let pairIdx = 0; pairIdx < G / 2; pairIdx++) {
+            slotSpecs.push(makeQualSpec(pairIdx * 2, 1), makeQualSpec(pairIdx * 2 + 1, 2));
+          }
+          for (let pairIdx = 0; pairIdx < G / 2; pairIdx++) {
+            slotSpecs.push(makeQualSpec(pairIdx * 2 + 1, 1), makeQualSpec(pairIdx * 2, 2));
+          }
+        } else {
+          // Non-power-of-2 group count (3, 5, 6, 7...): balanced bracket with Byes for top group winners
+          const seedOrder = generateStandardBracketOrder(P);
+          const qualBySeed = {};
+          const upperWinnerGroups = [];
+          const lowerWinnerGroups = [];
+          const upperRunnerSeeds = [];
+          const lowerRunnerSeeds = [];
+
+          for (let pos = 0; pos < P; pos++) {
+            const s = seedOrder[pos];
+            const isUpper = pos < (P / 2);
+            if (s >= 1 && s <= G) {
+              const gIdx = s - 1;
+              qualBySeed[s] = makeQualSpec(gIdx, 1);
+              if (isUpper) upperWinnerGroups.push(gIdx);
+              else lowerWinnerGroups.push(gIdx);
+            } else if (s > G && s <= Q) {
+              if (isUpper) upperRunnerSeeds.push(s);
+              else lowerRunnerSeeds.push(s);
+            }
+          }
+
+          upperRunnerSeeds.sort(function (a, b) { return a - b; });
+          lowerRunnerSeeds.sort(function (a, b) { return a - b; });
+
+          lowerWinnerGroups.forEach(function (gIdx, i) {
+            qualBySeed[upperRunnerSeeds[i]] = makeQualSpec(gIdx, 2);
+          });
+          upperWinnerGroups.forEach(function (gIdx, i) {
+            qualBySeed[lowerRunnerSeeds[i]] = makeQualSpec(gIdx, 2);
+          });
+
+          for (let pos = 0; pos < P; pos++) {
+            slotSpecs.push(qualBySeed[seedOrder[pos]] || null);
+          }
+        }
+
+        const rounds = [];
+        const schedule = [];
+        let matchCounter = firstMatchNo;
+
+        // Knockout Round 1
+        const r0Title = getGroupKnockoutRoundTitle(P);
+        const r0Matches = [];
+        for (let i = 0; i < P; i += 2) {
+          const specA = slotSpecs[i];
+          const specB = slotSpecs[i + 1];
+          const isBye = (!specA || !specB);
+
+          if (isBye) {
+            const advSpec = specA || specB;
+            r0Matches.push({
+              roundIndex: 0,
+              slotIndex: i / 2,
+              matchNo: null,
+              isBye: true,
+              qualA: specA,
+              qualB: specB,
+              advQual: advSpec,
+              teamA: null,
+              teamB: null,
+              labelA: specA ? specA.label : 'ได้บาย (Bye)',
+              labelB: specB ? specB.label : 'ได้บาย (Bye)',
+              advancingTeam: null
+            });
+          } else {
+            const mNo = matchCounter++;
+            r0Matches.push({
+              roundIndex: 0,
+              slotIndex: i / 2,
+              matchNo: mNo,
+              isBye: false,
+              qualA: specA,
+              qualB: specB,
+              advQual: null,
+              teamA: null,
+              teamB: null,
+              labelA: specA.label,
+              labelB: specB.label,
+              advancingTeam: null
+            });
+            schedule.push({
+              matchNo: mNo,
+              roundTitle: r0Title,
+              teamA: null,
+              teamB: null,
+              labelA: specA.label,
+              labelB: specB.label
+            });
+          }
+        }
+        rounds.push({ title: r0Title, matches: r0Matches });
+
+        // Subsequent Knockout Rounds (Semifinals -> Final)
+        for (let r = 1; r < totalRounds; r++) {
+          const prevMatches = rounds[r - 1].matches;
+          const teamsInThisRound = P / Math.pow(2, r);
+          const roundTitle = getGroupKnockoutRoundTitle(teamsInThisRound);
+          const currMatches = [];
+
+          for (let i = 0; i < prevMatches.length; i += 2) {
+            const feederA = prevMatches[i];
+            const feederB = prevMatches[i + 1];
+            const mNo = matchCounter++;
+            const qA = feederA.advQual || null;
+            const qB = feederB.advQual || null;
+            const labelA = qA ? qA.label : ('ผู้ชนะ คู่ที่ ' + feederA.matchNo);
+            const labelB = qB ? qB.label : ('ผู้ชนะ คู่ที่ ' + feederB.matchNo);
+
+            const mObj = {
+              roundIndex: r,
+              slotIndex: i / 2,
+              matchNo: mNo,
+              isBye: false,
+              qualA: qA,
+              qualB: qB,
+              advQual: null,
+              teamA: null,
+              teamB: null,
+              labelA: labelA,
+              labelB: labelB,
+              advancingTeam: null
+            };
+            currMatches.push(mObj);
+
+            if (r === totalRounds - 1 && includeThirdPlace && Q >= 4) {
+              const semiA = prevMatches[0];
+              const semiB = prevMatches[1];
+              const thirdMatchNo = mNo;
+              const finalMatchNo = matchCounter++;
+              mObj.matchNo = finalMatchNo;
+
+              schedule.push({
+                matchNo: thirdMatchNo,
+                roundTitle: 'รอบชิงอันดับที่ 3',
+                teamA: null,
+                teamB: null,
+                labelA: 'ผู้แพ้ คู่ที่ ' + semiA.matchNo,
+                labelB: 'ผู้แพ้ คู่ที่ ' + semiB.matchNo
+              });
+              schedule.push({
+                matchNo: finalMatchNo,
+                roundTitle: roundTitle,
+                teamA: null,
+                teamB: null,
+                labelA: labelA,
+                labelB: labelB
+              });
+            } else {
+              schedule.push({
+                matchNo: mNo,
+                roundTitle: roundTitle,
+                teamA: null,
+                teamB: null,
+                labelA: labelA,
+                labelB: labelB
+              });
+            }
+          }
+
+          rounds.push({ title: roundTitle, matches: currMatches });
+        }
+
+        const thirdPlaceMatch = (includeThirdPlace && Q >= 4)
+          ? (schedule.find(function (m) { return m.roundTitle === 'รอบชิงอันดับที่ 3'; }) || null)
+          : null;
+
+        return {
+          qualifiersCount: Q,
+          bracketSize: P,
+          includeThirdPlace: Boolean(includeThirdPlace),
+          rounds: rounds,
+          thirdPlaceMatch: thirdPlaceMatch,
+          schedule: schedule
+        };
+      }
+
+      function ensureGroupKnockoutStage(draw) {
+        if (!draw || draw.method !== 'groups' || !Array.isArray(draw.groups) || draw.groups.length < 2) {
+          return null;
+        }
+        if (draw.knockoutStage && Array.isArray(draw.knockoutStage.rounds)) {
+          return draw.knockoutStage;
+        }
+        let maxGroupMatchNo = 0;
+        draw.groups.forEach(function (grp) {
+          (grp.rounds || []).forEach(function (rd) {
+            (rd.pairings || []).forEach(function (p) {
+              if (p.matchNo > maxGroupMatchNo) maxGroupMatchNo = p.matchNo;
+            });
+          });
+        });
+        draw.knockoutStage = buildGroupKnockoutStage(draw.groups, maxGroupMatchNo + 1, true);
+        return draw.knockoutStage;
+      }
+
+      // 3. Standard Group Stage + Knockout Rounds (แบ่งสายรอบแรก + รอบน็อกเอาต์ / รอบรองฯ / รอบชิงฯ)
+      function generateGroupsDraw(sport, groupCount, includeThirdPlace) {
         const orderedTeams = buildSeededAndDrawnList(sport);
         const N = orderedTeams.length;
         const G = Math.max(2, Math.min(groupCount, Math.floor(N / 2)));
+        const withThirdPlace = (includeThirdPlace !== undefined) ? Boolean(includeThirdPlace) : true;
 
         const groupBuckets = [];
         for (let g = 0; g < G; g++) {
@@ -2746,11 +3021,17 @@
           });
         });
 
+        const knockoutStage = buildGroupKnockoutStage(groupBuckets, matchSeq, withThirdPlace);
+        const koEntryDesc = (G === 2)
+          ? 'คัดทีมอันดับ 1 และอันดับ 2 ของแต่ละสาย (รวม 4 ทีม) เข้าแข่งขันไขว้สายในรอบรองชนะเลิศ (1A พบ 2B, 1B พบ 2A) และรอบชิงชนะเลิศ'
+          : 'คัดทีมอันดับ 1 และอันดับ 2 ของแต่ละสาย (รวม ' + (G * 2) + ' ทีม) เข้าสู่ผังสายรอบน็อกเอาต์แบบไขว้สาย แยกทีมสายเดียวกันอยู่คนละฝั่งสายจนถึงรอบรองชนะเลิศและรอบชิงชนะเลิศ';
+
         return {
           method: 'groups',
           confirmed: false,
-          explanation: 'แบ่ง ' + N + ' โรงเรียน ออกเป็น ' + G + ' สาย ด้วยหลักการวางทีมสลับฟันปลา (Snake Seeding) เพื่อให้จำนวนโรงเรียนในแต่ละสายสมดุลกัน (ต่างกันไม่เกิน 1 ทีม) และแยกทีมวางไม่ให้อยู่สายเดียวกัน จากนั้นจัดโปรแกรมพบกันหมดภายในแต่ละสาย',
+          explanation: 'แบ่ง ' + N + ' โรงเรียน ออกเป็น ' + G + ' สาย ด้วยหลักการวางทีมสลับฟันปลา (Snake Seeding) ให้จำนวนทีมสมดุลกันและแยกมือวางคนละสาย แข่งขันพบกันหมดในสาย จากนั้น' + koEntryDesc,
           groups: groupBuckets,
+          knockoutStage: knockoutStage,
           results: {}
         };
       }
@@ -2944,6 +3225,202 @@
           liveThirdPlace: liveThirdPlace,
           liveSchedule: liveSchedule,
           podium: podium
+        };
+      }
+
+      // Computes Group Standings + Automatic Qualification into Knockout Rounds (QF / SF / 3rd / Final)
+      function computeGroupKnockoutLiveState(draw) {
+        if (!draw.results) draw.results = {};
+        const ko = ensureGroupKnockoutStage(draw);
+        const groupSummaries = [];
+        const resolvedQualifiers = {};
+
+        draw.groups.forEach(function (grp, gIdx) {
+          const standings = computeStandingsRows(grp.teams, grp.rounds, draw.results);
+          let totalMatches = 0;
+          let playedMatches = 0;
+
+          (grp.rounds || []).forEach(function (rd) {
+            (rd.pairings || []).forEach(function (p) {
+              totalMatches += 1;
+              if (evaluateMatchScore(p.teamA, p.teamB, draw.results[p.matchNo], false).hasScore) {
+                playedMatches += 1;
+              }
+            });
+          });
+
+          const isComplete = (totalMatches > 0 && playedMatches === totalMatches);
+          const letter = String.fromCharCode(65 + gIdx);
+
+          groupSummaries.push({
+            group: grp,
+            standings: standings,
+            totalMatches: totalMatches,
+            playedMatches: playedMatches,
+            isComplete: isComplete
+          });
+
+          if (isComplete) {
+            resolvedQualifiers[gIdx] = {
+              1: standings[0] ? Object.assign({}, standings[0].team, { qualTag: '1' + letter }) : null,
+              2: standings[1] ? Object.assign({}, standings[1].team, { qualTag: '2' + letter }) : null
+            };
+          } else {
+            resolvedQualifiers[gIdx] = { 1: null, 2: null };
+          }
+        });
+
+        if (!ko) {
+          return { groupSummaries: groupSummaries, liveKo: null };
+        }
+
+        function resolveQual(spec) {
+          if (!spec || !resolvedQualifiers[spec.groupIndex]) return null;
+          return resolvedQualifiers[spec.groupIndex][spec.rank] || null;
+        }
+
+        const liveRounds = [];
+        const matchLookup = {};
+
+        // Knockout Round 1
+        const r0Matches = ko.rounds[0].matches.map(function (origM) {
+          const lm = Object.assign({}, origM);
+          if (lm.isBye) {
+            const qSpec = lm.qualA || lm.qualB;
+            const qTeam = resolveQual(qSpec);
+            lm.teamA = lm.qualA ? qTeam : null;
+            lm.teamB = lm.qualB ? qTeam : null;
+            lm.advancingTeam = qTeam;
+            lm.advFallbackLabel = qSpec ? qSpec.label : '';
+            lm.losingTeam = null;
+            lm.winnerSide = null;
+            lm.isTied = false;
+          } else {
+            lm.teamA = resolveQual(lm.qualA);
+            lm.teamB = resolveQual(lm.qualB);
+            lm.labelA = lm.teamA ? lm.teamA.name : lm.qualA.label;
+            lm.labelB = lm.teamB ? lm.teamB.name : lm.qualB.label;
+            validateAndEvaluateKnockoutSlot(lm, draw.results);
+            matchLookup[lm.matchNo] = lm;
+          }
+          return lm;
+        });
+        liveRounds.push({ title: ko.rounds[0].title, matches: r0Matches });
+
+        // Subsequent Knockout Rounds (Semifinals -> Final)
+        for (let r = 1; r < ko.rounds.length; r++) {
+          const prevMatches = liveRounds[r - 1].matches;
+          const currOrig = ko.rounds[r].matches;
+          const currLive = [];
+
+          for (let k = 0; k < currOrig.length; k++) {
+            const origM = currOrig[k];
+            const feederA = prevMatches[k * 2];
+            const feederB = prevMatches[k * 2 + 1];
+            const knownA = feederA.advancingTeam || null;
+            const knownB = feederB.advancingTeam || null;
+            const fbA = feederA.isBye ? (feederA.advFallbackLabel || origM.labelA) : ('ผู้ชนะ คู่ที่ ' + feederA.matchNo);
+            const fbB = feederB.isBye ? (feederB.advFallbackLabel || origM.labelB) : ('ผู้ชนะ คู่ที่ ' + feederB.matchNo);
+
+            const lm = {
+              roundIndex: r,
+              slotIndex: k,
+              matchNo: origM.matchNo,
+              isBye: false,
+              teamA: knownA,
+              teamB: knownB,
+              labelA: knownA ? knownA.name : fbA,
+              labelB: knownB ? knownB.name : fbB,
+              advancingTeam: null,
+              losingTeam: null,
+              winnerSide: null,
+              isTied: false
+            };
+
+            validateAndEvaluateKnockoutSlot(lm, draw.results);
+            matchLookup[lm.matchNo] = lm;
+            currLive.push(lm);
+          }
+
+          liveRounds.push({ title: ko.rounds[r].title, matches: currLive });
+        }
+
+        // Optional 3rd Place Match
+        let liveThirdPlace = null;
+        if (ko.thirdPlaceMatch && liveRounds.length >= 2) {
+          const semiRound = liveRounds[liveRounds.length - 2];
+          const semiA = semiRound.matches[0];
+          const semiB = semiRound.matches[1];
+          const tpA = semiA.losingTeam || null;
+          const tpB = semiB.losingTeam || null;
+
+          liveThirdPlace = {
+            matchNo: ko.thirdPlaceMatch.matchNo,
+            roundTitle: 'รอบชิงอันดับที่ 3',
+            isBye: false,
+            teamA: tpA,
+            teamB: tpB,
+            labelA: tpA ? tpA.name : ('ผู้แพ้ คู่ที่ ' + semiA.matchNo),
+            labelB: tpB ? tpB.name : ('ผู้แพ้ คู่ที่ ' + semiB.matchNo),
+            advancingTeam: null,
+            losingTeam: null,
+            winnerSide: null,
+            isTied: false
+          };
+
+          validateAndEvaluateKnockoutSlot(liveThirdPlace, draw.results);
+          matchLookup[liveThirdPlace.matchNo] = liveThirdPlace;
+        }
+
+        // Hydrated Knockout Schedule
+        const liveSchedule = ko.schedule.map(function (schedItem) {
+          const src = matchLookup[schedItem.matchNo];
+          if (!src) return Object.assign({}, schedItem);
+          return {
+            matchNo: schedItem.matchNo,
+            roundTitle: schedItem.roundTitle,
+            teamA: src.teamA,
+            teamB: src.teamB,
+            labelA: src.labelA,
+            labelB: src.labelB,
+            winnerSide: src.winnerSide,
+            isTied: src.isTied
+          };
+        });
+
+        // Final Tournament Podium
+        const finalMatch = liveRounds[liveRounds.length - 1].matches[0];
+        const podium = [];
+        if (finalMatch && finalMatch.advancingTeam) {
+          podium.push({ rank: 1, title: 'ชนะเลิศ (อันดับ 1)', team: finalMatch.advancingTeam });
+        }
+        if (finalMatch && finalMatch.losingTeam) {
+          podium.push({ rank: 2, title: 'รองชนะเลิศอันดับ 1 (อันดับ 2)', team: finalMatch.losingTeam });
+        }
+        if (liveThirdPlace) {
+          if (liveThirdPlace.advancingTeam) {
+            podium.push({ rank: 3, title: 'อันดับที่ 3', team: liveThirdPlace.advancingTeam });
+          }
+          if (liveThirdPlace.losingTeam) {
+            podium.push({ rank: 4, title: 'อันดับที่ 4', team: liveThirdPlace.losingTeam });
+          }
+        } else if (liveRounds.length >= 2) {
+          const semiRound = liveRounds[liveRounds.length - 2];
+          semiRound.matches.forEach(function (sm) {
+            if (sm.losingTeam) {
+              podium.push({ rank: 3, title: 'อันดับที่ 3 ร่วม', team: sm.losingTeam });
+            }
+          });
+        }
+
+        return {
+          groupSummaries: groupSummaries,
+          liveKo: {
+            liveRounds: liveRounds,
+            liveThirdPlace: liveThirdPlace,
+            liveSchedule: liveSchedule,
+            podium: podium
+          }
         };
       }
 
@@ -3276,29 +3753,25 @@
         if (!teamObj) {
           return '<span>' + escapeHtml(fallbackText) + '</span>';
         }
-        let badge = '';
-        if (teamObj.seed) {
-          badge = '<span class="seed-tag">มือวาง ' + teamObj.seed + '</span>';
+        let badges = '';
+        if (teamObj.qualTag) {
+          badges += '<span class="qual-tag">' + escapeHtml(teamObj.qualTag) + '</span>';
         }
-        return '<span>' + escapeHtml(teamObj.name) + '</span>' + badge;
+        if (teamObj.seed) {
+          badges += '<span class="seed-tag">มือวาง ' + teamObj.seed + '</span>';
+        }
+        return '<span>' + escapeHtml(teamObj.name) + '</span>' + badges;
       }
 
-      function renderKnockoutResult(draw) {
-        const round1Count = draw.rounds[0].matches.length;
+      function renderStaticBracketSectionHtml(rounds, thirdPlaceMatch, schedule, bracketTitle, scheduleTitle) {
+        const round1Count = rounds[0].matches.length;
         const boardHeight = Math.max(220, round1Count * 118);
 
-        let html =
-          '<div class="standard-note">' +
-            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (แพ้คัดออก Single Elimination)</div>' +
-            '<p class="standard-note-body">' + escapeHtml(draw.explanation) + '</p>' +
-          '</div>';
-
-        // Visual Bracket Tree
-        html += '<h3 class="section-subtitle">แผนผังสายการแข่งขัน</h3>';
+        let html = '<h3 class="section-subtitle">' + escapeHtml(bracketTitle) + '</h3>';
         html += '<div class="bracket-scroll-wrapper"><div class="bracket-board">';
 
-        draw.rounds.forEach(function (round, rIdx) {
-          const isFinalRound = (rIdx === draw.rounds.length - 1);
+        rounds.forEach(function (round, rIdx) {
+          const isFinalRound = (rIdx === rounds.length - 1);
           html += '<div class="bracket-round-col">';
           html += '<div class="bracket-round-header">' + escapeHtml(round.title) + '</div>';
           html += '<div class="bracket-round-body" style="min-height:' + boardHeight + 'px;">';
@@ -3328,23 +3801,21 @@
 
         html += '</div></div>';
 
-        // Optional 3rd place match box
-        if (draw.thirdPlaceMatch) {
+        if (thirdPlaceMatch) {
           html +=
             '<div class="third-place-wrap">' +
               '<h3 class="section-subtitle">คู่ชิงอันดับที่ 3</h3>' +
               '<div class="match-box">' +
-                '<div class="match-box-head"><span>คู่ที่ ' + draw.thirdPlaceMatch.matchNo + '</span><span>ชิงอันดับ 3</span></div>' +
-                '<div class="match-team-row placeholder-team"><span>' + escapeHtml(draw.thirdPlaceMatch.labelA) + '</span></div>' +
-                '<div class="match-team-row placeholder-team"><span>' + escapeHtml(draw.thirdPlaceMatch.labelB) + '</span></div>' +
+                '<div class="match-box-head"><span>คู่ที่ ' + thirdPlaceMatch.matchNo + '</span><span>ชิงอันดับ 3</span></div>' +
+                '<div class="match-team-row placeholder-team"><span>' + escapeHtml(thirdPlaceMatch.labelA) + '</span></div>' +
+                '<div class="match-team-row placeholder-team"><span>' + escapeHtml(thirdPlaceMatch.labelB) + '</span></div>' +
               '</div>' +
             '</div>';
         }
 
-        // Sequential Match Fixture Table
-        html += '<h3 class="section-subtitle">ลำดับคู่การแข่งขันตามโปรแกรม</h3>';
+        html += '<h3 class="section-subtitle">' + escapeHtml(scheduleTitle) + '</h3>';
         html += '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>คู่ที่</th><th>รอบการแข่งขัน</th><th>ทีมที่ 1 (สายบน)</th><th></th><th>ทีมที่ 2 (สายล่าง)</th></tr></thead><tbody>';
-        draw.schedule.forEach(function (m) {
+        schedule.forEach(function (m) {
           html +=
             '<tr>' +
               '<td style="white-space:nowrap;"><strong>คู่ที่ ' + m.matchNo + '</strong></td>' +
@@ -3359,18 +3830,43 @@
         return html;
       }
 
+      function renderKnockoutResult(draw) {
+        let html =
+          '<div class="standard-note">' +
+            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (แพ้คัดออก Single Elimination)</div>' +
+            '<p class="standard-note-body">' + escapeHtml(draw.explanation) + '</p>' +
+          '</div>';
+
+        html += renderStaticBracketSectionHtml(
+          draw.rounds,
+          draw.thirdPlaceMatch,
+          draw.schedule,
+          'แผนผังสายการแข่งขัน',
+          'ลำดับคู่การแข่งขันตามโปรแกรม'
+        );
+
+        return html;
+      }
+
       function renderMatchBoxHtml(m) {
         if (m.isBye) {
           const adv = m.advancingTeam;
-          const topIsTeam = Boolean(m.teamA);
+          const topHasEntry = Boolean(m.teamA || m.qualA);
+          const topContent = m.teamA
+            ? renderTeamCellContent(adv, '')
+            : '<span>' + escapeHtml(m.qualA ? m.qualA.label : m.labelA) + '</span>';
+          const bottomContent = m.teamB
+            ? renderTeamCellContent(adv, '')
+            : '<span>' + escapeHtml(m.qualB ? m.qualB.label : m.labelB) + '</span>';
+
           return (
             '<div class="match-box is-bye">' +
               '<div class="match-box-head"><span>ได้บายรอบแรก</span><span>ผ่านเข้ารอบ</span></div>' +
-              '<div class="match-team-row ' + (topIsTeam ? '' : 'bye-row') + '">' +
-                (topIsTeam ? renderTeamCellContent(adv, '') : '<span>ได้บาย (Bye)</span>') +
+              '<div class="match-team-row ' + (topHasEntry ? (m.teamA ? '' : 'placeholder-team') : 'bye-row') + '">' +
+                (topHasEntry ? topContent : '<span>ได้บาย (Bye)</span>') +
               '</div>' +
-              '<div class="match-team-row ' + (!topIsTeam ? '' : 'bye-row') + '">' +
-                (!topIsTeam ? renderTeamCellContent(adv, '') : '<span>ได้บาย (Bye)</span>') +
+              '<div class="match-team-row ' + (!topHasEntry ? (m.teamB ? '' : 'placeholder-team') : 'bye-row') + '">' +
+                (!topHasEntry ? bottomContent : '<span>ได้บาย (Bye)</span>') +
               '</div>' +
             '</div>'
           );
@@ -3390,12 +3886,15 @@
       }
 
       function renderGroupsResult(draw) {
+        const ko = ensureGroupKnockoutStage(draw);
+
         let html =
           '<div class="standard-note">' +
-            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (แบ่งสายพบกันหมดรอบแรก)</div>' +
+            '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (แบ่งสายรอบแรก + รอบน็อกเอาต์ / รอบรองชนะเลิศ / รอบชิงชนะเลิศ)</div>' +
             '<p class="standard-note-body">' + escapeHtml(draw.explanation) + '</p>' +
           '</div>';
 
+        html += '<h3 class="section-subtitle">ระยะที่ 1: รอบแบ่งสายพบกันหมด (คัดอันดับ 1–2 ของแต่ละสายเข้ารอบน็อกเอาต์)</h3>';
         html += '<div class="groups-grid">';
         draw.groups.forEach(function (grp) {
           html +=
@@ -3436,6 +3935,20 @@
           html += '</tbody></table></div></div></div>';
         });
         html += '</div>';
+
+        if (ko) {
+          html +=
+            '<div class="knockout-stage-section">' +
+              renderStaticBracketSectionHtml(
+                ko.rounds,
+                ko.thirdPlaceMatch,
+                ko.schedule,
+                'ระยะที่ 2: ผังสายรอบน็อกเอาต์ (รอบรองชนะเลิศ – รอบชิงชนะเลิศ)',
+                'ลำดับคู่การแข่งขันรอบน็อกเอาต์'
+              ) +
+            '</div>';
+        }
+
         return html;
       }
 
@@ -3586,7 +4099,7 @@
         if (cfg.method === 'knockout') {
           pendingDraw = generateKnockoutDraw(sport, cfg.thirdPlace);
         } else if (cfg.method === 'groups') {
-          pendingDraw = generateGroupsDraw(sport, cfg.groupCount);
+          pendingDraw = generateGroupsDraw(sport, cfg.groupCount, cfg.thirdPlace);
         } else {
           pendingDraw = generateRoundRobinDraw(sport);
         }
@@ -3841,6 +4354,10 @@
               '<div class="method-options-bar">' +
                 '<label for="sel-group-count" style="font-weight:600; font-size:0.93rem;">จำนวนสายรอบแรก:</label>' +
                 '<select id="sel-group-count" class="seed-select" style="padding:7px 12px; font-size:0.93rem;"' + (isConfirmed ? ' disabled' : '') + '>' + opts + '</select>' +
+                '<label class="inline-check-label">' +
+                  '<input type="checkbox" class="entry-checkbox" id="chk-third-place"' + (cfg.thirdPlace ? ' checked' : '') + (isConfirmed ? ' disabled' : '') + '>' +
+                  '<span>เพิ่มคู่แข่งขันชิงอันดับที่ 3 ในรอบน็อกเอาต์</span>' +
+                '</label>' +
               '</div>';
           }
 
@@ -3915,8 +4432,8 @@
 
                 (canUseGroups ? (
                   '<div class="method-card ' + (cfg.method === 'groups' ? 'selected' : '') + (isConfirmed ? ' is-locked' : '') + '" data-select-method="groups" tabindex="' + (isConfirmed ? '-1' : '0') + '" role="radio" aria-checked="' + (cfg.method === 'groups') + '" aria-disabled="' + isConfirmed + '">' +
-                    '<div class="method-card-top">แบ่งสายรอบแรก (Group Stage)</div>' +
-                    '<div class="method-card-desc">แบ่งสาย A, B, C... แบบงูเลื้อยให้จำนวนทีมสมดุลกัน พร้อมตารางพบกันหมดในสาย</div>' +
+                    '<div class="method-card-top">แบ่งสายรอบแรก + รอบน็อกเอาต์ (Group Stage)</div>' +
+                    '<div class="method-card-desc">แบ่งสาย A, B, C... พบกันหมดในสาย แล้วคัดอันดับ 1–2 เข้ารอบน็อกเอาต์ รอบรองชนะเลิศ และรอบชิงชนะเลิศ</div>' +
                   '</div>'
                 ) : '') +
 
@@ -4147,15 +4664,22 @@
       function renderLiveMatchBoxHtml(m, results, headerRightText) {
         if (m.isBye) {
           const adv = m.advancingTeam;
-          const topIsTeam = Boolean(m.teamA);
+          const topHasEntry = Boolean(m.teamA || m.qualA);
+          const topContent = m.teamA
+            ? renderTeamCellContent(adv, '')
+            : '<span>' + escapeHtml(m.qualA ? m.qualA.label : m.labelA) + '</span>';
+          const bottomContent = m.teamB
+            ? renderTeamCellContent(adv, '')
+            : '<span>' + escapeHtml(m.qualB ? m.qualB.label : m.labelB) + '</span>';
+
           return (
             '<div class="match-box is-bye">' +
               '<div class="match-box-head"><span>ได้บายรอบแรก</span><span>ผ่านเข้ารอบ</span></div>' +
-              '<div class="match-team-row ' + (topIsTeam ? '' : 'bye-row') + '">' +
-                (topIsTeam ? renderTeamCellContent(adv, '') : '<span>ได้บาย (Bye)</span>') +
+              '<div class="match-team-row ' + (topHasEntry ? (m.teamA ? '' : 'placeholder-team') : 'bye-row') + '">' +
+                (topHasEntry ? topContent : '<span>ได้บาย (Bye)</span>') +
               '</div>' +
-              '<div class="match-team-row ' + (!topIsTeam ? '' : 'bye-row') + '">' +
-                (!topIsTeam ? renderTeamCellContent(adv, '') : '<span>ได้บาย (Bye)</span>') +
+              '<div class="match-team-row ' + (!topHasEntry ? (m.teamB ? '' : 'placeholder-team') : 'bye-row') + '">' +
+                (!topHasEntry ? bottomContent : '<span>ได้บาย (Bye)</span>') +
               '</div>' +
             '</div>'
           );
@@ -4197,35 +4721,32 @@
         );
       }
 
-      function renderKnockoutCompetitionMarkup(draw) {
-        const live = computeKnockoutLiveState(draw);
+      function renderPodiumSummaryHtml(podium) {
+        if (!podium || podium.length === 0) return '';
+        let html =
+          '<div class="podium-summary-box">' +
+            '<h3 class="section-subtitle" style="margin:0;">สรุปอันดับการแข่งขัน</h3>' +
+            '<div class="podium-list">';
+        podium.forEach(function (p) {
+          const rCls = p.rank <= 3 ? (' rank-' + p.rank) : '';
+          html +=
+            '<div class="podium-card">' +
+              '<span class="rank-pill' + rCls + '">' + p.rank + '</span>' +
+              '<div>' +
+                '<span class="podium-label">' + escapeHtml(p.title) + '</span>' +
+                '<span class="podium-team">' + escapeHtml(p.team.name) + '</span>' +
+              '</div>' +
+            '</div>';
+        });
+        html += '</div></div>';
+        return html;
+      }
+
+      function renderLiveKnockoutSectionHtml(live, resultsMap, bracketHeading, scheduleHeading) {
         const round1Count = live.liveRounds[0].matches.length;
         const boardHeight = Math.max(240, round1Count * 136);
 
-        let html = '';
-
-        // Ranking / Podium box once medal positions start resolving
-        if (live.podium.length > 0) {
-          html +=
-            '<div class="podium-summary-box">' +
-              '<h3 class="section-subtitle" style="margin:0;">สรุปอันดับการแข่งขัน</h3>' +
-              '<div class="podium-list">';
-          live.podium.forEach(function (p) {
-            const rCls = p.rank <= 3 ? (' rank-' + p.rank) : '';
-            html +=
-              '<div class="podium-card">' +
-                '<span class="rank-pill' + rCls + '">' + p.rank + '</span>' +
-                '<div>' +
-                  '<span class="podium-label">' + escapeHtml(p.title) + '</span>' +
-                  '<span class="podium-team">' + escapeHtml(p.team.name) + '</span>' +
-                '</div>' +
-              '</div>';
-          });
-          html += '</div></div>';
-        }
-
-        // Interactive Visual Bracket
-        html += '<h3 class="section-subtitle">แผนผังสายการแข่งขัน (บันทึกสกอร์ในผังได้ทันที)</h3>';
+        let html = '<h3 class="section-subtitle">' + escapeHtml(bracketHeading) + '</h3>';
         html += '<div class="bracket-scroll-wrapper"><div class="bracket-board">';
 
         live.liveRounds.forEach(function (round, rIdx) {
@@ -4239,7 +4760,7 @@
             html +=
               '<div class="bracket-pair">' +
                 '<div class="bracket-slot-cell">' +
-                  renderLiveMatchBoxHtml(finalMatch, draw.results, '') +
+                  renderLiveMatchBoxHtml(finalMatch, resultsMap, '') +
                 '</div>' +
               '</div>';
           } else {
@@ -4248,8 +4769,8 @@
               const mBottom = round.matches[i + 1];
               html +=
                 '<div class="bracket-pair has-connector">' +
-                  '<div class="bracket-slot-cell">' + renderLiveMatchBoxHtml(mTop, draw.results, '') + '</div>' +
-                  '<div class="bracket-slot-cell">' + renderLiveMatchBoxHtml(mBottom, draw.results, '') + '</div>' +
+                  '<div class="bracket-slot-cell">' + renderLiveMatchBoxHtml(mTop, resultsMap, '') + '</div>' +
+                  '<div class="bracket-slot-cell">' + renderLiveMatchBoxHtml(mBottom, resultsMap, '') + '</div>' +
                 '</div>';
             }
           }
@@ -4259,22 +4780,20 @@
 
         html += '</div></div>';
 
-        // Interactive 3rd place match card
         if (live.liveThirdPlace) {
           html +=
             '<div class="third-place-wrap">' +
               '<h3 class="section-subtitle">คู่ชิงอันดับที่ 3</h3>' +
-              renderLiveMatchBoxHtml(live.liveThirdPlace, draw.results, 'ชิงอันดับ 3') +
+              renderLiveMatchBoxHtml(live.liveThirdPlace, resultsMap, 'ชิงอันดับ 3') +
             '</div>';
         }
 
-        // Interactive Synchronized Schedule Table
-        html += '<h3 class="section-subtitle">ตารางลำดับคู่การแข่งขัน (ข้อมูลซิงก์กับแผนผังอัตโนมัติ)</h3>';
+        html += '<h3 class="section-subtitle">' + escapeHtml(scheduleHeading) + '</h3>';
         html += '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>คู่ที่</th><th>รอบการแข่งขัน</th><th>ทีมที่ 1 (สายบน)</th><th style="text-align:center;">ผลการแข่งขัน</th><th>ทีมที่ 2 (สายล่าง)</th></tr></thead><tbody>';
 
         live.liveSchedule.forEach(function (m) {
           const canEnterScore = Boolean(m.teamA && m.teamB);
-          const res = (draw.results && draw.results[m.matchNo]) ? draw.results[m.matchNo] : { scoreA: '', scoreB: '', tieWinner: null };
+          const res = (resultsMap && resultsMap[m.matchNo]) ? resultsMap[m.matchNo] : { scoreA: '', scoreB: '', tieWinner: null };
           const scoreAVal = canEnterScore && res.scoreA !== undefined ? String(res.scoreA) : '';
           const scoreBVal = canEnterScore && res.scoreB !== undefined ? String(res.scoreB) : '';
 
@@ -4309,16 +4828,40 @@
         return html;
       }
 
-      function renderGroupsCompetitionMarkup(draw) {
-        if (!draw.results) draw.results = {};
-        let html = '<div style="display:flex; flex-direction:column; gap:var(--space-6);">';
+      function renderKnockoutCompetitionMarkup(draw) {
+        const live = computeKnockoutLiveState(draw);
+        return (
+          renderPodiumSummaryHtml(live.podium) +
+          renderLiveKnockoutSectionHtml(
+            live,
+            draw.results,
+            'แผนผังสายการแข่งขัน (บันทึกสกอร์ในผังได้ทันที)',
+            'ตารางลำดับคู่การแข่งขัน (ข้อมูลซิงก์กับแผนผังอัตโนมัติ)'
+          )
+        );
+      }
 
-        draw.groups.forEach(function (grp) {
-          const standingsRows = computeStandingsRows(grp.teams, grp.rounds, draw.results);
+      function renderGroupsCompetitionMarkup(draw) {
+        const stateObj = computeGroupKnockoutLiveState(draw);
+        let html = '';
+
+        if (stateObj.liveKo && stateObj.liveKo.podium.length > 0) {
+          html += renderPodiumSummaryHtml(stateObj.liveKo.podium);
+        }
+
+        html += '<h3 class="section-subtitle">ระยะที่ 1: รอบแบ่งสายพบกันหมด (เมื่อกรอกผลครบทุกนัดในสาย ระบบจะส่งทีมอันดับ 1–2 เข้ารอบน็อกเอาต์อัตโนมัติ)</h3>';
+        html += '<div style="display:flex; flex-direction:column; gap:var(--space-6);">';
+
+        stateObj.groupSummaries.forEach(function (gSum) {
+          const grp = gSum.group;
+          const standingsRows = gSum.standings;
 
           html +=
             '<div class="group-card">' +
-              '<div class="group-card-header">' + escapeHtml(grp.name) + ' — ตารางคะแนนและบันทึกผลการแข่งขัน</div>' +
+              '<div class="group-card-header" style="display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px;">' +
+                '<span>' + escapeHtml(grp.name) + ' — ตารางคะแนนและบันทึกผลการแข่งขัน</span>' +
+                (gSum.isComplete ? '<span class="lock-tag-inline">แข่งครบแล้ว — ส่งอันดับ 1–2 เข้ารอบน็อกเอาต์</span>' : '') +
+              '</div>' +
               '<div class="group-card-body">' +
                 renderStandingsTableHtml('ตารางสรุปคะแนนประจำ' + grp.name, standingsRows) +
                 '<h4 class="section-subtitle" style="font-size:0.95rem;">โปรแกรมและบันทึกผลการแข่งขันใน' + escapeHtml(grp.name) + '</h4>' +
@@ -4363,6 +4906,19 @@
         });
 
         html += '</div>';
+
+        if (stateObj.liveKo) {
+          html +=
+            '<div class="knockout-stage-section">' +
+              renderLiveKnockoutSectionHtml(
+                stateObj.liveKo,
+                draw.results,
+                'ระยะที่ 2: รอบน็อกเอาต์ (รอบรองชนะเลิศ – รอบชิงชนะเลิศ) — บันทึกสกอร์ในผังได้ทันที',
+                'ตารางลำดับคู่แข่งขันรอบน็อกเอาต์ (ข้อมูลซิงก์กับแผนผังอัตโนมัติ)'
+              ) +
+            '</div>';
+        }
+
         return html;
       }
 
@@ -4837,12 +5393,12 @@
           return;
         }
 
-        // Select tiebreak winner when scores are tied in Knockout (Step 5)
+        // Select tiebreak winner when scores are tied in Knockout or Post-Group Knockout
         const tieBtn = target.closest('[data-tiebreak-match]');
         if (tieBtn) {
           const sp = getSportById(state.selectedSportIdForMatches);
           const draw = sp ? state.draws[sp.id] : null;
-          if (draw && draw.method === 'knockout') {
+          if (draw && (draw.method === 'knockout' || draw.method === 'groups')) {
             const mNo = Number(tieBtn.getAttribute('data-tiebreak-match'));
             const side = tieBtn.getAttribute('data-tiebreak-side');
             if (!draw.results) draw.results = {};
