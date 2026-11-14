@@ -7,7 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@500;600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
   <style>
     :root {
@@ -1151,7 +1150,7 @@
       cursor: not-allowed;
     }
 
-    /* Step 4: Summary by Sport & PDF Export */
+    /* Summary by Sport View */
     .summary-toolbar-card {
       margin-bottom: var(--space-6);
       display: flex;
@@ -1181,13 +1180,13 @@
       width: min(100%, 280px);
     }
 
-    .pdf-export-wrapper {
+    .summary-list-wrapper {
       display: flex;
       flex-direction: column;
       gap: var(--space-6);
     }
 
-    .pdf-doc-banner {
+    .summary-doc-banner {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -1195,13 +1194,13 @@
       border-top: 4px solid var(--brand);
     }
 
-    .pdf-doc-title {
+    .summary-doc-title {
       font-size: clamp(1.12rem, 2vw, 1.3rem);
       font-weight: 700;
       margin-bottom: 4px;
     }
 
-    .pdf-doc-sub {
+    .summary-doc-sub {
       margin: 0;
       color: var(--muted);
       font-size: 0.93rem;
@@ -1215,7 +1214,6 @@
       padding: clamp(16px, 2.4vw, 24px);
       min-width: 0;
       max-width: 100%;
-      page-break-inside: avoid;
     }
 
     .summary-sport-header {
@@ -1280,93 +1278,10 @@
       gap: var(--space-3);
     }
 
-    /* Full-width unclipped capture during html2pdf generation */
-    .pdf-capture-mode {
-      background: #ffffff;
-      padding: 8px;
-    }
-
-    .pdf-capture-mode .bracket-scroll-wrapper,
-    .pdf-capture-mode .table-wrap {
-      overflow: visible !important;
-      height: auto !important;
-    }
-
-    .pdf-capture-mode .bracket-board {
-      transform: none !important;
-      width: 100% !important;
-    }
-
-    .pdf-capture-mode .summary-sport-section + .summary-sport-section {
-      page-break-before: always;
-      break-before: page;
-    }
-
-    @media print {
-      @page {
-        size: A4 landscape;
-        margin: 10mm;
-      }
-
-      body {
-        background: #ffffff !important;
-      }
-
-      .app-header,
-      .no-print {
-        display: none !important;
-      }
-
-      .main-container {
-        max-width: none !important;
-        padding: 0 !important;
-        margin: 0 !important;
-      }
-
-      .view-panel {
-        display: none !important;
-      }
-
-      #view-draw {
-        display: block !important;
-      }
-
-      .draw-config-grid {
-        display: block !important;
-      }
-
-      .summary-sport-section {
-        box-shadow: none !important;
-        border: 1px solid #cbd5e1 !important;
-        margin-bottom: 16px !important;
-      }
-
-      .summary-sport-section + .summary-sport-section {
-        page-break-before: always;
-        break-before: page;
-      }
-
-      .bracket-scroll-wrapper,
-      .table-wrap {
-        overflow: visible !important;
-        height: auto !important;
-      }
-
-      .bracket-board {
-        transform: none !important;
-        width: 100% !important;
-      }
-
-      .match-box,
-      .group-card {
-        break-inside: avoid;
-        page-break-inside: avoid;
-      }
-
-      * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
+    .master-schedule-section {
+      margin-top: var(--space-6);
+      padding-top: var(--space-6);
+      border-top: 2px solid var(--border);
     }
 
     /* Hero Draw Button & Exciting Live Draw Stage */
@@ -3421,15 +3336,25 @@
           groupBuckets[targetGroup].teams.push(team);
         });
 
-        let matchSeq = 1;
+        let maxRoundsInGroups = 0;
         groupBuckets.forEach(function (grp) {
           grp.rounds = generateCircleFixtures(grp.teams);
-          grp.rounds.forEach(function (rd) {
-            rd.pairings.forEach(function (p) {
-              p.matchNo = matchSeq++;
-            });
-          });
+          if (grp.rounds.length > maxRoundsInGroups) {
+            maxRoundsInGroups = grp.rounds.length;
+          }
         });
+
+        let matchSeq = 1;
+        for (let rIdx = 0; rIdx < maxRoundsInGroups; rIdx++) {
+          groupBuckets.forEach(function (grp) {
+            const rd = grp.rounds[rIdx];
+            if (rd && rd.pairings) {
+              rd.pairings.forEach(function (p) {
+                p.matchNo = matchSeq++;
+              });
+            }
+          });
+        }
 
         const knockoutStage = buildGroupKnockoutStage(groupBuckets, matchSeq, withThirdPlace);
         const koEntryDesc = (G === 2)
@@ -4166,8 +4091,7 @@
             statusText: 'ยังไม่แบ่งสาย',
             rank1: [],
             rank2: [],
-            rank3: [],
-            rank4: []
+            rank3: []
           };
         }
 
@@ -4191,21 +4115,18 @@
         let rank1 = [];
         let rank2 = [];
         let rank3 = [];
-        let rank4 = [];
 
         if (draw.method === 'knockout') {
           const live = computeKnockoutLiveState(draw);
           rank1 = live.podium.filter(function (p) { return p.rank === 1; }).map(function (p) { return p.team; });
           rank2 = live.podium.filter(function (p) { return p.rank === 2; }).map(function (p) { return p.team; });
           rank3 = live.podium.filter(function (p) { return p.rank === 3; }).map(function (p) { return p.team; });
-          rank4 = live.podium.filter(function (p) { return p.rank === 4; }).map(function (p) { return p.team; });
         } else if (draw.method === 'groups') {
           const gState = computeGroupKnockoutLiveState(draw);
           const pod = gState.liveKo ? gState.liveKo.podium : [];
           rank1 = pod.filter(function (p) { return p.rank === 1; }).map(function (p) { return p.team; });
           rank2 = pod.filter(function (p) { return p.rank === 2; }).map(function (p) { return p.team; });
           rank3 = pod.filter(function (p) { return p.rank === 3; }).map(function (p) { return p.team; });
-          rank4 = pod.filter(function (p) { return p.rank === 4; }).map(function (p) { return p.team; });
         } else if (draw.method === 'roundrobin') {
           const rrState = computeRoundRobinLiveState(draw);
           if (rrState.liveKo) {
@@ -4213,21 +4134,10 @@
             rank1 = pod.filter(function (p) { return p.rank === 1; }).map(function (p) { return p.team; });
             rank2 = pod.filter(function (p) { return p.rank === 2; }).map(function (p) { return p.team; });
             rank3 = pod.filter(function (p) { return p.rank === 3; }).map(function (p) { return p.team; });
-            rank4 = pod.filter(function (p) { return p.rank === 4; }).map(function (p) { return p.team; });
-            if (
-              draw.knockoutStage &&
-              draw.knockoutStage.qualifiersCount === 2 &&
-              !draw.knockoutStage.includeThirdPlace &&
-              rrState.isLeagueComplete &&
-              rrState.standingsRows[3]
-            ) {
-              rank4 = [rrState.standingsRows[3].team];
-            }
           } else if (rrState.isLeagueComplete) {
             rank1 = rrState.standingsRows.filter(function (r) { return r.rank === 1; }).map(function (r) { return r.team; });
             rank2 = rrState.standingsRows.filter(function (r) { return r.rank === 2; }).map(function (r) { return r.team; });
             rank3 = rrState.standingsRows.filter(function (r) { return r.rank === 3; }).map(function (r) { return r.team; });
-            rank4 = rrState.standingsRows.filter(function (r) { return r.rank === 4; }).map(function (r) { return r.team; });
           }
         }
 
@@ -4238,8 +4148,7 @@
           statusText: statusText,
           rank1: rank1,
           rank2: rank2,
-          rank3: rank3,
-          rank4: rank4
+          rank3: rank3
         };
       }
 
@@ -4494,7 +4403,7 @@
         return '<span>' + escapeHtml(teamObj.name) + '</span>' + badges;
       }
 
-      function renderStaticBracketSectionHtml(rounds, thirdPlaceMatch, schedule, bracketTitle, scheduleTitle) {
+      function renderStaticBracketSectionHtml(rounds, thirdPlaceMatch, schedule, bracketTitle, scheduleTitle, omitScheduleTable) {
         const round1Count = rounds[0].matches.length;
         const boardHeight = Math.max(220, round1Count * 118);
 
@@ -4544,24 +4453,26 @@
             '</div>';
         }
 
-        html += '<h3 class="section-subtitle">' + escapeHtml(scheduleTitle) + '</h3>';
-        html += '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>คู่ที่</th><th>รอบการแข่งขัน</th><th>ทีมที่ 1 (สายบน)</th><th></th><th>ทีมที่ 2 (สายล่าง)</th></tr></thead><tbody>';
-        schedule.forEach(function (m) {
-          html +=
-            '<tr>' +
-              '<td style="white-space:nowrap;"><strong>คู่ที่ ' + m.matchNo + '</strong></td>' +
-              '<td>' + escapeHtml(m.roundTitle) + '</td>' +
-              '<td>' + (m.teamA ? renderTeamCellContent(m.teamA, m.labelA) : escapeHtml(m.labelA)) + '</td>' +
-              '<td><span class="vs-pill">พบ</span></td>' +
-              '<td>' + (m.teamB ? renderTeamCellContent(m.teamB, m.labelB) : escapeHtml(m.labelB)) + '</td>' +
-            '</tr>';
-        });
-        html += '</tbody></table></div>';
+        if (!omitScheduleTable) {
+          html += '<h3 class="section-subtitle">' + escapeHtml(scheduleTitle) + '</h3>';
+          html += '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>คู่ที่</th><th>รอบการแข่งขัน</th><th>ทีมที่ 1 (สายบน)</th><th></th><th>ทีมที่ 2 (สายล่าง)</th></tr></thead><tbody>';
+          schedule.forEach(function (m) {
+            html +=
+              '<tr>' +
+                '<td style="white-space:nowrap;"><strong>คู่ที่ ' + m.matchNo + '</strong></td>' +
+                '<td>' + escapeHtml(m.roundTitle) + '</td>' +
+                '<td>' + (m.teamA ? renderTeamCellContent(m.teamA, m.labelA) : escapeHtml(m.labelA)) + '</td>' +
+                '<td><span class="vs-pill">พบ</span></td>' +
+                '<td>' + (m.teamB ? renderTeamCellContent(m.teamB, m.labelB) : escapeHtml(m.labelB)) + '</td>' +
+              '</tr>';
+          });
+          html += '</tbody></table></div>';
+        }
 
         return html;
       }
 
-      function renderKnockoutResult(draw) {
+      function renderKnockoutResult(draw, omitScheduleTable) {
         let html =
           '<div class="standard-note">' +
             '<div class="standard-note-title">หลักมาตรฐานที่ใช้จัดสาย (แพ้คัดออก Single Elimination)</div>' +
@@ -4573,7 +4484,8 @@
           draw.thirdPlaceMatch,
           draw.schedule,
           'แผนผังสายการแข่งขัน',
-          'ลำดับคู่การแข่งขันตามโปรแกรม'
+          'ลำดับคู่การแข่งขันตามโปรแกรม',
+          omitScheduleTable
         );
 
         return html;
@@ -4616,7 +4528,7 @@
         );
       }
 
-      function renderGroupsResult(draw) {
+      function renderGroupsResult(draw, omitScheduleTable) {
         const ko = ensureGroupKnockoutStage(draw);
 
         let html =
@@ -4675,7 +4587,8 @@
                 ko.thirdPlaceMatch,
                 ko.schedule,
                 'ระยะที่ 2: ผังสายรอบน็อกเอาต์ (รอบรองชนะเลิศ – รอบชิงชนะเลิศ)',
-                'ลำดับคู่การแข่งขันรอบน็อกเอาต์'
+                'ลำดับคู่การแข่งขันรอบน็อกเอาต์',
+                omitScheduleTable
               ) +
             '</div>';
         }
@@ -4683,7 +4596,7 @@
         return html;
       }
 
-      function renderRoundRobinResult(draw) {
+      function renderRoundRobinResult(draw, omitScheduleTable) {
         const hasKo = Boolean(draw.knockoutStage && Array.isArray(draw.knockoutStage.rounds));
 
         let html =
@@ -4742,7 +4655,8 @@
                 draw.knockoutStage.thirdPlaceMatch,
                 draw.knockoutStage.schedule,
                 koHeading,
-                'ลำดับคู่การแข่งขันรอบน็อกเอาต์'
+                'ลำดับคู่การแข่งขันรอบน็อกเอาต์',
+                omitScheduleTable
               ) +
             '</div>';
         }
@@ -4750,7 +4664,112 @@
         return html;
       }
 
-      function buildDrawOutputMarkup(currentDraw) {
+      function collectFullSportSequentialSchedule(draw) {
+        const list = [];
+        if (!draw) return list;
+
+        if (draw.method === 'knockout') {
+          (draw.schedule || []).forEach(function (m) {
+            list.push({
+              matchNo: m.matchNo,
+              stageLabel: m.roundTitle,
+              teamA: m.teamA || null,
+              teamB: m.teamB || null,
+              labelA: m.labelA,
+              labelB: m.labelB
+            });
+          });
+        } else if (draw.method === 'groups') {
+          (draw.groups || []).forEach(function (grp) {
+            (grp.rounds || []).forEach(function (rd) {
+              (rd.pairings || []).forEach(function (p) {
+                list.push({
+                  matchNo: p.matchNo,
+                  stageLabel: grp.name + ' (รอบที่ ' + rd.roundNo + ')',
+                  teamA: p.teamA || null,
+                  teamB: p.teamB || null,
+                  labelA: p.teamA ? p.teamA.name : '',
+                  labelB: p.teamB ? p.teamB.name : ''
+                });
+              });
+            });
+          });
+          const ko = ensureGroupKnockoutStage(draw);
+          if (ko && Array.isArray(ko.schedule)) {
+            ko.schedule.forEach(function (m) {
+              list.push({
+                matchNo: m.matchNo,
+                stageLabel: m.roundTitle,
+                teamA: m.teamA || null,
+                teamB: m.teamB || null,
+                labelA: m.labelA,
+                labelB: m.labelB
+              });
+            });
+          }
+        } else if (draw.method === 'roundrobin') {
+          (draw.rounds || []).forEach(function (rd) {
+            (rd.pairings || []).forEach(function (p) {
+              list.push({
+                matchNo: p.matchNo,
+                stageLabel: 'รอบพบกันหมด (รอบที่ ' + rd.roundNo + ')',
+                teamA: p.teamA || null,
+                teamB: p.teamB || null,
+                labelA: p.teamA ? p.teamA.name : '',
+                labelB: p.teamB ? p.teamB.name : ''
+              });
+            });
+          });
+          if (draw.knockoutStage && Array.isArray(draw.knockoutStage.schedule)) {
+            draw.knockoutStage.schedule.forEach(function (m) {
+              list.push({
+                matchNo: m.matchNo,
+                stageLabel: m.roundTitle,
+                teamA: m.teamA || null,
+                teamB: m.teamB || null,
+                labelA: m.labelA,
+                labelB: m.labelB
+              });
+            });
+          }
+        }
+
+        list.sort(function (a, b) {
+          return a.matchNo - b.matchNo;
+        });
+        return list;
+      }
+
+      function renderMasterSequentialScheduleHtml(draw) {
+        const allMatches = collectFullSportSequentialSchedule(draw);
+        if (allMatches.length === 0) return '';
+
+        const hasFinal = (draw.method === 'knockout' || draw.method === 'groups' || Boolean(draw.knockoutStage));
+        const headingText = hasFinal
+          ? 'ลำดับโปรแกรมการแข่งขัน (ตั้งแต่คู่ที่ 1 ถึงคู่ชิงชนะเลิศ)'
+          : 'ลำดับโปรแกรมการแข่งขันทั้งหมด (เรียงตั้งแต่คู่ที่ 1 ตามลำดับ)';
+
+        let html = '<div class="master-schedule-section">';
+        html += '<h3 class="section-subtitle">' + escapeHtml(headingText) + '</h3>';
+        html += '<div class="table-wrap"><table class="fixture-table"><thead><tr><th>ลำดับคู่</th><th>รอบ / สายการแข่งขัน</th><th>ทีมที่ 1</th><th></th><th>ทีมที่ 2</th></tr></thead><tbody>';
+
+        allMatches.forEach(function (m) {
+          const isFinalRow = m.stageLabel === 'รอบชิงชนะเลิศ';
+          html +=
+            '<tr' + (isFinalRow ? ' style="background:#f8fbff; font-weight:600;"' : '') + '>' +
+              '<td style="white-space:nowrap;"><strong>คู่ที่ ' + m.matchNo + '</strong></td>' +
+              '<td>' + escapeHtml(m.stageLabel) + '</td>' +
+              '<td>' + (m.teamA ? renderTeamCellContent(m.teamA, m.labelA) : escapeHtml(m.labelA)) + '</td>' +
+              '<td><span class="vs-pill">พบ</span></td>' +
+              '<td>' + (m.teamB ? renderTeamCellContent(m.teamB, m.labelB) : escapeHtml(m.labelB)) + '</td>' +
+            '</tr>';
+        });
+
+        html += '</tbody></table></div></div>';
+        return html;
+      }
+
+      function buildDrawOutputMarkup(currentDraw, summaryMode) {
         if (!currentDraw) {
           return (
             '<div class="empty-state">' +
@@ -4759,14 +4778,15 @@
             '</div>'
           );
         }
+        const omitPartial = Boolean(summaryMode);
         if (currentDraw.method === 'knockout') {
-          return renderKnockoutResult(currentDraw);
+          return renderKnockoutResult(currentDraw, omitPartial);
         }
         if (currentDraw.method === 'groups') {
-          return renderGroupsResult(currentDraw);
+          return renderGroupsResult(currentDraw, omitPartial);
         }
         if (currentDraw.method === 'roundrobin') {
-          return renderRoundRobinResult(currentDraw);
+          return renderRoundRobinResult(currentDraw, omitPartial);
         }
         return '';
       }
@@ -5063,7 +5083,7 @@
 
           container.innerHTML =
             '<div class="draw-config-grid">' +
-              '<div class="draw-sidebar-col no-print">' +
+              '<div class="draw-sidebar-col">' +
                 summaryMenuCardHtml +
                 '<div class="card">' +
                   '<div class="card-header" style="margin-bottom:var(--space-2);">' +
@@ -5278,7 +5298,7 @@
 
         container.innerHTML =
           '<div class="draw-config-grid">' +
-            '<div class="draw-sidebar-col no-print">' +
+            '<div class="draw-sidebar-col">' +
               summaryMenuCardHtml +
               '<div class="card">' +
                 '<div class="card-header" style="margin-bottom:var(--space-3);">' +
@@ -5313,7 +5333,7 @@
                   '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>' +
                 '</div>' +
                 '<div class="empty-title">ยังไม่มีรายการกีฬาที่ทำการแบ่งสาย</div>' +
-                '<p class="empty-desc">กรุณาทำการสุ่มจับสลากแบ่งสายการแข่งขันในขั้นตอนที่ 3 อย่างน้อย 1 ประเภทกีฬา เพื่อดูสรุปรายการแบ่งสายและส่งออกเป็น PDF</p>' +
+                '<p class="empty-desc">กรุณาทำการสุ่มจับสลากแบ่งสายการแข่งขันในขั้นตอนที่ 3 อย่างน้อย 1 ประเภทกีฬา เพื่อดูสรุปรายการแบ่งสายและลำดับโปรแกรมการแข่งขัน</p>' +
                 '<button type="button" class="btn btn-primary" data-goto-step="draw">ไปหน้าแบ่งสายการแข่งขัน</button>' +
               '</div>' +
             '</div>';
@@ -5349,7 +5369,8 @@
                   (isConf ? 'ยืนยันและล็อกสายแล้ว' : 'ยังไม่ยืนยันการล็อกสาย') +
                 '</span>' +
               '</div>' +
-              buildDrawOutputMarkup(draw) +
+              buildDrawOutputMarkup(draw, true) +
+              renderMasterSequentialScheduleHtml(draw) +
             '</article>';
         });
 
@@ -5357,97 +5378,32 @@
         if (state.summarySportFilter === 'ALL' && undrawnSports.length > 0) {
           const names = undrawnSports.map(function (s) { return s.name; }).join(', ');
           undrawnNoticeHtml =
-            '<div class="undrawn-notice no-print">' +
+            '<div class="undrawn-notice">' +
               '<span>ประเภทกีฬาที่ยังไม่ได้จับสลากแบ่งสาย: ' + escapeHtml(names) + '</span>' +
               '<button type="button" class="btn btn-secondary btn-sm" data-goto-step="draw">ไปหน้าแบ่งสายการแข่งขัน</button>' +
             '</div>';
         }
 
         container.innerHTML =
-          '<div class="card summary-toolbar-card no-print">' +
+          '<div class="card summary-toolbar-card">' +
             '<div>' +
               '<h2 id="heading-summary" class="card-title">สรุปรายการแบ่งสายการแข่งขัน</h2>' +
-              '<p class="card-desc">สรุปผังสายการแข่งขันและตารางคู่แข่งขันแยกตามประเภทกีฬา พร้อมส่งออกเป็นไฟล์ PDF</p>' +
+              '<p class="card-desc">สรุปผังสายการแข่งขันและลำดับโปรแกรมการแข่งขันแยกตามประเภทกีฬา</p>' +
             '</div>' +
             '<div class="summary-controls">' +
               '<label for="sel-summary-filter" style="font-weight:600; font-size:0.92rem;">เลือกรายการ:</label>' +
               '<select id="sel-summary-filter" class="summary-filter-select">' + filterOptionsHtml + '</select>' +
-              '<button type="button" id="btn-export-pdf" class="btn btn-primary">' +
-                '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6"></path><path d="m9 15 3 3 3-3"></path></svg>' +
-                '<span data-pdf-label>ส่งออกเป็น PDF</span>' +
-              '</button>' +
             '</div>' +
           '</div>' +
-          '<div id="pdf-export-area" class="pdf-export-wrapper">' +
-            '<div class="pdf-doc-banner">' +
-              '<h3 class="pdf-doc-title">สรุปรายการแบ่งสายการแข่งขันกีฬานักเรียน</h3>' +
-              '<p class="pdf-doc-sub">เอกสารสรุปผังการแข่งขันและโปรแกรมคู่แข่งขันแยกตามประเภทกีฬา</p>' +
+          '<div class="summary-list-wrapper">' +
+            '<div class="summary-doc-banner">' +
+              '<h3 class="summary-doc-title">สรุปรายการแบ่งสายการแข่งขันกีฬานักเรียน</h3>' +
+              '<p class="summary-doc-sub">เอกสารสรุปผังการแข่งขันและลำดับโปรแกรมคู่แข่งขันแยกตามประเภทกีฬา</p>' +
             '</div>' +
             sectionsHtml +
           '</div>' +
           undrawnNoticeHtml;
         fitVisibleBracketsToScreen();
-      }
-
-      function exportSummaryToPdf() {
-        const exportEl = document.getElementById('pdf-export-area');
-        if (!exportEl) return;
-        const btn = document.getElementById('btn-export-pdf');
-        const labelEl = btn ? btn.querySelector('[data-pdf-label]') : null;
-
-        let fileTitle = 'สรุปรายการแบ่งสายการแข่งขันกีฬานักเรียน';
-        if (state.summarySportFilter !== 'ALL') {
-          const sp = getSportById(state.summarySportFilter);
-          if (sp) fileTitle += '-' + sp.name.replace(/[\\/:*?"<>|]/g, '_');
-        }
-
-        if (typeof window.html2pdf === 'function') {
-          if (btn) btn.disabled = true;
-          if (labelEl) labelEl.textContent = 'กำลังสร้างไฟล์ PDF...';
-          resetBracketsInlineScale(exportEl);
-          exportEl.classList.add('pdf-capture-mode');
-
-          const captureWidth = Math.max(exportEl.scrollWidth + 32, 1120);
-          const opt = {
-            margin: [10, 10, 10, 10],
-            filename: fileTitle + '.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: {
-              scale: 2,
-              useCORS: true,
-              backgroundColor: '#ffffff',
-              windowWidth: captureWidth,
-              scrollX: 0,
-              scrollY: 0
-            },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' },
-            pagebreak: { mode: ['css', 'legacy'] }
-          };
-
-          window.html2pdf()
-            .set(opt)
-            .from(exportEl)
-            .save()
-            .then(function () {
-              exportEl.classList.remove('pdf-capture-mode');
-              fitVisibleBracketsToScreen();
-              if (btn) btn.disabled = false;
-              if (labelEl) labelEl.textContent = 'ส่งออกเป็น PDF';
-            })
-            .catch(function () {
-              exportEl.classList.remove('pdf-capture-mode');
-              fitVisibleBracketsToScreen();
-              if (btn) btn.disabled = false;
-              if (labelEl) labelEl.textContent = 'ส่งออกเป็น PDF';
-              try { window.print(); } catch (_e) {}
-            });
-        } else {
-          try {
-            window.print();
-          } catch (_e) {
-            // Print dialog blocked in sandboxed preview
-          }
-        }
       }
 
       /* =====================================================================
@@ -6094,7 +6050,6 @@
               '<td>' + renderPlacementTeamsHtml(info.rank1, 1) + '</td>' +
               '<td>' + renderPlacementTeamsHtml(info.rank2, 2) + '</td>' +
               '<td>' + renderPlacementTeamsHtml(info.rank3, 3) + '</td>' +
-              '<td>' + renderPlacementTeamsHtml(info.rank4, 4) + '</td>' +
               '<td><span class="status-chip ' + info.statusClass + '">' + escapeHtml(info.statusText) + '</span></td>' +
             '</tr>';
         });
@@ -6116,7 +6071,6 @@
                     '<th>ชนะเลิศ (อันดับ 1)</th>' +
                     '<th>รองชนะเลิศอันดับ 1 (อันดับ 2)</th>' +
                     '<th>อันดับที่ 3</th>' +
-                    '<th>อันดับที่ 4</th>' +
                     '<th>สถานะผลการแข่งขัน</th>' +
                   '</tr>' +
                 '</thead>' +
@@ -6126,21 +6080,8 @@
           '</div>';
       }
 
-      function resetBracketsInlineScale(rootEl) {
-        if (!rootEl) return;
-        rootEl.querySelectorAll('.bracket-scroll-wrapper').forEach(function (wrapper) {
-          wrapper.style.height = '';
-          const board = wrapper.querySelector('.bracket-board');
-          if (board) {
-            board.style.transform = '';
-            board.style.width = '';
-          }
-        });
-      }
-
       function fitVisibleBracketsToScreen() {
         document.querySelectorAll('.view-panel.active .bracket-scroll-wrapper').forEach(function (wrapper) {
-          if (wrapper.closest('.pdf-capture-mode')) return;
           const board = wrapper.querySelector('.bracket-board');
           if (!board) return;
 
@@ -6526,12 +6467,6 @@
               scheduleSupabaseSync(false);
             }
           }
-          return;
-        }
-
-        // Export Summary to PDF
-        if (target.closest('#btn-export-pdf')) {
-          exportSummaryToPdf();
           return;
         }
 
